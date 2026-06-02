@@ -268,6 +268,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
       <div class="wn-dates" id="wn-dg-dates">📅 2 Jun — 8 Jun 2026</div>
     </div>
     <div class="readonly-note">👁️ Vista de solo lectura · Datos en tiempo real</div>
+<div id="dg-notifications"></div>
     <div class="semaforo-card verde" id="dg-semaforo">
       <div class="sem-icon" id="dg-sem-icon">✅</div>
       <div class="sem-status" id="dg-sem-status">EN CAMINO</div>
@@ -339,7 +340,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
       <div class="kpi-card ac-amber"><div class="kc-val" id="ger-vspe" style="font-size:1rem;">+$10K</div><div class="kc-sub">vs PE $104K</div></div>
       <div class="kpi-card ac-beer"><div class="kc-lbl">🏆 Mundial</div><div class="kc-val" id="ger-mundial-kpi">$0</div><div class="kc-sub">extra</div></div>
     </div>
-    <div id="ger-week-actions"></div><div class="sec-title"><span>⚡</span>Palancas del equipo</div>
+    <div id="ger-week-actions"></div>
+<div id="ger-notifications"></div><div class="sec-title"><span>⚡</span>Palancas del equipo</div>
     <div class="inp-card" id="ger-palancas"></div>
     <div class="sec-title"><span>👥</span>Desempeño individual</div>
     <div id="ger-equipo"></div>
@@ -387,7 +389,13 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
       </div>
       <div class="wn-dates" id="wn-enc-dates">📅 2 Jun — 8 Jun 2026</div>
     </div>
-    <div id="enc-closed-banner" style="display:none;background:var(--red-lt);border:1px solid var(--red);border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:.75rem;color:var(--red);font-weight:600;">🔒 Semana cerrada · Solo lectura</div><div id="enc-comments-received"></div>
+    <div id="enc-closed-banner" style="display:none;">
+  <div style="background:var(--red-lt);border:1px solid var(--red);border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
+    <div style="font-size:1.5rem;margin-bottom:8px;">🔒</div>
+    <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:.95rem;color:var(--red);">Semana Cerrada</div>
+    <div style="font-size:.72rem;color:var(--ink-dim);margin-top:4px;">Esta semana fue cerrada por el gerente.<br>Ya no puedes editar datos.</div>
+  </div>
+</div><div id="enc-comments-received"></div>
     <div class="lvl-hdr lh-enc">
       <div class="lh-icon">📋</div>
       <div class="lh-info"><div class="lh-title" id="enc-nombre-hdr">Encargado de Turno</div><div class="lh-sub">Tu meta + equipo</div></div>
@@ -446,7 +454,13 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
       </div>
       <div class="wn-dates" id="wn-mes-dates">📅 2 Jun — 8 Jun 2026</div>
     </div>
-    <div id="mes-closed-banner" style="display:none;background:var(--red-lt);border:1px solid var(--red);border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:.75rem;color:var(--red);font-weight:600;">🔒 Semana cerrada · Solo lectura</div><div id="mes-comments-received"></div>
+    <div id="mes-closed-banner" style="display:none;">
+  <div style="background:var(--red-lt);border:1px solid var(--red);border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
+    <div style="font-size:1.5rem;margin-bottom:8px;">🔒</div>
+    <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:.95rem;color:var(--red);">Semana Cerrada</div>
+    <div style="font-size:.72rem;color:var(--ink-dim);margin-top:4px;">Esta semana fue cerrada por el gerente.<br>Ya no puedes editar datos.</div>
+  </div>
+</div><div id="mes-comments-received"></div>
     <div class="lvl-hdr lh-mes">
       <div class="lh-icon">🍽️</div>
       <div class="lh-info"><div class="lh-title" id="mes-nombre-hdr">Mis metas</div><div class="lh-sub">Piezas · el sistema calcula el $</div></div>
@@ -624,6 +638,18 @@ function updateCommentStatus(key,id,status){ if(window._updateCommentStatus)wind
 function saveAdminUsers(){ if(window._saveAdminUsers)window._saveAdminUsers(); }
 function cerrarSemana(){ if(window._cerrarSemana)window._cerrarSemana(); else alert('Cargando...'); }
 function reabrirSemana(){ if(window._reabrirSemana)window._reabrirSemana(); else alert('Cargando...'); }
+function renderComments(){ if(window._renderComments)window._renderComments(); }
+function renderAcuerdos(){ if(window._renderAcuerdos)window._renderAcuerdos(); }
+function renderAdminUsers(){ if(window._renderAdminUsers)window._renderAdminUsers(); }
+function populateEncTarget(){ 
+  if(window._populateEncTarget){ window._populateEncTarget(); return; }
+  // Fallback using global users
+  const sel=document.getElementById('enc-comment-target');
+  if(!sel)return;
+  const allU=window.users||DEFAULT_USERS;
+  const mes=allU.filter(function(u){return u.role==='mes';});
+  sel.innerHTML=mes.map(function(m){return '<option value="'+m.id+'">→ '+m.nombre+'</option>';}).join('');
+}
 document.addEventListener('DOMContentLoaded',function(){renderLoginUI();});
 </script>
 
@@ -800,6 +826,10 @@ async function saveSemanasStatus(){
 function isWeekClosed(w){return semanasStatus['w'+(w||week)]?.closed===true;}
 function isCurrWeekClosed(){return isWeekClosed(week);}
 
+// Register all comment/status functions globally
+window._renderComments = renderComments;
+window._renderWeekStatus = renderWeekStatus;
+
 async function saveComments(){
   try{await setDoc(commRef(),allComments,{merge:false});await setDoc(archRef(),{list:archivedComments},{merge:false});}catch(e){}
 }
@@ -836,7 +866,7 @@ window._updateCommentStatus=window.updateCommentStatus=async function(key,id,sta
   renderComments();
 };
 
-function renderComments(){
+window._renderComments=window.renderComments=function(){
   if(!currentUser)return;
   const role=currentUser.role;
   const mid=currentUser.id;
@@ -893,8 +923,10 @@ function renderComments(){
   // Update target selector - always populate for enc
   const encSelEl=document.getElementById('enc-comment-target');
   if(encSelEl){
-    const mesUsers=users.filter(u=>u.role==='mes');
-    if(mesUsers.length>0)encSelEl.innerHTML=mesUsers.map(m=>`<option value="${m.id}">→ ${m.nombre}</option>`).join('');
+    const allU=window.users||DEFAULT_USERS;
+    const mesUsers=allU.filter(u=>u.role==='mes');
+    const opts=mesUsers.length>0?mesUsers:DEFAULT_USERS.filter(u=>u.role==='mes');
+    encSelEl.innerHTML=opts.map(m=>`<option value="${m.id}">→ ${m.nombre}</option>`).join('');
   }
 }
 
@@ -914,7 +946,7 @@ function commentItemHTML(key,c,canCheck){
 }
 
 window._renderAcuerdos=window.renderAcuerdos=
-function renderAcuerdos(){
+window._renderAcuerdos=window.renderAcuerdos=function(){
   const div=document.getElementById('acuerdos-list');if(!div)return;
   if(!archivedComments.length){div.innerHTML='<div style="padding:20px;text-align:center;color:var(--ink-faint);font-size:.78rem;">No hay acuerdos completados aún</div>';return;}
   const grouped={};
@@ -958,16 +990,27 @@ function fillInputs(){
   if(currentUser?.role==='enc'){const rEl=document.getElementById('enc-rev-inp');if(rEl&&document.activeElement!==rEl)rEl.value=getW().enc_reviews||'';}
   // Disable/enable inputs based on week status
   const closed=isCurrWeekClosed();
-  // Disable/enable all editable inputs
-  document.querySelectorAll('input[type="number"],input[type="text"],textarea,select').forEach(el=>{
-    if(!el.classList.contains('ro-gold')&&!el.id?.includes('apin')&&!el.id?.includes('aname')){
-      el.disabled=closed;
-      el.style.opacity=closed?'0.5':'1';
-    }
-  });
-  // Hide save fab completely when closed
+  // Hide/show save fab
   const fab=document.getElementById('save-fab');
   if(fab)fab.style.display=(closed||currentUser?.role==='dg')?'none':'flex';
+  // For enc and mes - hide the ENTIRE panel content and show locked banner only
+  if(currentUser?.role==='enc'||currentUser?.role==='mes'){
+    const role=currentUser.role==='enc'?'enc':'mes';
+    const banner=document.getElementById(role+'-closed-banner');
+    if(banner)banner.style.display=closed?'block':'none';
+    // Hide all section content below the banner when closed
+    const panel=document.getElementById('panel-'+role);
+    if(panel){
+      // Get all direct children except the week-nav, banner, and lvl-hdr
+      Array.from(panel.children).forEach(child=>{
+        const id=child.id||'';
+        const isAlwaysVisible=id.includes('closed-banner')||id.includes('wn-')||child.classList.contains('week-nav')||child.classList.contains('lvl-hdr');
+        if(!isAlwaysVisible&&child.tagName!=='SCRIPT'){
+          child.style.display=closed?'none':'';
+        }
+      });
+    }
+  }
   renderWeekStatus();
 }
 
@@ -1011,6 +1054,30 @@ function renderDG(){
     const col=pct>=100?'var(--green)':pct>50?'var(--amber)':'var(--red)';
     return `<div class="rank-dg-item"><div class="rdi-pos ${posClass[i]}">${posEmoji[i]}</div><div class="rdi-name">${it.nombre}</div><div class="rdi-bar-wrap"><div class="rdi-bar" style="width:${pct}%;background:${it.color};"></div></div><div class="rdi-pct" style="color:${col};">${pct}%</div></div>`;
   }).join('');
+  // Notifications for contraloría
+  const notifDiv=document.getElementById('dg-notifications');
+  if(notifDiv){
+    let notifHtml='';
+    Object.keys(semanasStatus).forEach(k=>{
+      const s=semanasStatus[k];
+      const semNum=k.replace('w','');
+      if(s.closed&&s.notifyContraloria){
+        notifHtml+=`<div style="background:#fff3cd;border:1px solid var(--amber);border-radius:10px;padding:12px;margin-bottom:8px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;color:var(--amber);">🔔 Acción requerida</div>
+          <div style="font-size:.72rem;color:var(--ink);margin-top:4px;">El gerente cerró la <strong>Semana ${semNum}</strong> y solicita autorización para posible reapertura.</div>
+          <button onclick="week=${semNum};reabrirSemana()" style="margin-top:8px;background:var(--amber);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;cursor:pointer;">🔓 Autorizar Reapertura Sem ${semNum}</button>
+        </div>`;
+      }
+      if(!s.closed&&s.notifyGerente){
+        notifHtml+=`<div style="background:var(--green-lt);border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:8px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;color:var(--green);">✅ Reapertura autorizada</div>
+          <div style="font-size:.72rem;color:var(--ink);margin-top:4px;"><strong>Semana ${semNum}</strong> fue reabierta por Contraloría.</div>
+        </div>`;
+      }
+    });
+    notifDiv.innerHTML=notifHtml;
+  }
+
   const semanas=Object.keys(localData).sort();
   const hist=document.getElementById('dg-historial');
   hist.innerHTML=semanas.map(k=>{
@@ -1045,6 +1112,21 @@ function renderGerPalancas(){
   else if(totalInc>0){setPill(pill,'+'+pct+'% avance','p-warn');tag.textContent='EN CURSO';}
   else{setPill(pill,'Sin incremento','p-off');tag.textContent='INICIO';}
   renderGerEquipo();renderGerRevDetalle();
+  // Show reopen notification if any
+  const gerNotifDiv=document.getElementById('ger-notifications');
+  if(gerNotifDiv){
+    let nHtml='';
+    Object.keys(semanasStatus).forEach(k=>{
+      const s=semanasStatus[k];const semNum=k.replace('w','');
+      if(!s.closed&&s.notifyGerente){
+        nHtml+=`<div style="background:var(--green-lt);border:1px solid var(--green);border-radius:10px;padding:12px;margin-bottom:8px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;color:var(--green);">✅ Semana ${semNum} reabierta</div>
+          <div style="font-size:.72rem;color:var(--ink-dim);">Contraloría autorizó la reapertura de la Semana ${semNum}. Ya puedes editar.</div>
+        </div>`;
+      }
+    });
+    gerNotifDiv.innerHTML=nHtml;
+  }
 }
 window.renderGerPalancas=renderGerPalancas;
 
@@ -1144,11 +1226,18 @@ window.renderEncPalancas=renderEncPalancas;
 window._populateEncTarget=populateEncTarget;
 
 // Populate enc comment target whenever enc panel loads
-function populateEncTarget(){
+window._populateEncTarget=window.populateEncTarget=function(){
   const sel=document.getElementById('enc-comment-target');
   if(!sel)return;
-  const mesUsers=users.filter(u=>u.role==='mes');
-  sel.innerHTML=mesUsers.map(m=>`<option value="${m.id}">→ ${m.nombre}</option>`).join('');
+  // Use global users (always available from inline script)
+  const allUsers=window.users||DEFAULT_USERS;
+  const mesUsers=allUsers.filter(u=>u.role==='mes');
+  if(mesUsers.length===0){
+    // Fallback to defaults
+    sel.innerHTML=DEFAULT_USERS.filter(u=>u.role==='mes').map(m=>`<option value="${m.id}">→ ${m.nombre}</option>`).join('');
+  } else {
+    sel.innerHTML=mesUsers.map(m=>`<option value="${m.id}">→ ${m.nombre}</option>`).join('');
+  }
 }
 
 window.calcEnc=()=>{
@@ -1408,7 +1497,7 @@ function renderRanking(){
 window.renderRanking=renderRanking;
 
 // ══════ ADMIN ══════
-function renderAdminUsers(){
+window._renderAdminUsers=window.renderAdminUsers=function(){
   const div=document.getElementById('admin-users-list');if(!div)return;
   div.innerHTML=users.map(u=>`<div class="admin-user-row"><div class="aur-av" style="background:${u.bg};color:${u.color};">${u.nombre.charAt(0)}</div><input class="aur-name-inp" id="aname-${u.id}" value="${u.nombre}" placeholder="Nombre"><input class="aur-inp" id="apin-${u.id}" value="${u.pin}" placeholder="PIN" maxlength="4" type="password"></div>`).join('');
 }
@@ -1470,9 +1559,9 @@ window._cerrarSemana=window.cerrarSemana=async function(){
   if(pin!==currentUser.pin){showToast('⛔ PIN incorrecto');return;}
   const confirm=window.confirm('¿Confirmas el cierre de la Semana '+week+'? El equipo no podrá editar datos.');
   if(!confirm)return;
-  semanasStatus['w'+week]={closed:true,closedBy:currentUser.nombre,closedAt:new Date().toISOString(),reopenedBy:null};
+  semanasStatus['w'+week]={closed:true,closedBy:currentUser.nombre,closedAt:new Date().toISOString(),reopenedBy:null,notifyContraloria:true};
   await saveSemanasStatus();
-  showToast('✓ Semana '+week+' cerrada');
+  showToast('✓ Semana '+week+' cerrada · Contraloría será notificada');
   renderWeekStatus();
   document.getElementById('save-fab').style.display='none';
 };
@@ -1481,9 +1570,9 @@ window._reabrirSemana=window.reabrirSemana=async function(){
   if(currentUser?.role!=='dg'){showToast('Solo Contraloría puede autorizar reapertura');return;}
   const pin=prompt('PIN de Contraloría para autorizar reapertura:');
   if(!pin||pin!==currentUser.pin){showToast('⛔ PIN incorrecto');return;}
-  semanasStatus['w'+week]={...semanasStatus['w'+week],closed:false,reopenedBy:currentUser.nombre,reopenedAt:new Date().toISOString()};
+  semanasStatus['w'+week]={...semanasStatus['w'+week],closed:false,reopenedBy:currentUser.nombre,reopenedAt:new Date().toISOString(),notifyGerente:true,notifyContraloria:false};
   await saveSemanasStatus();
-  showToast('✓ Semana '+week+' reabierta');
+  showToast('✓ Semana '+week+' reabierta · El gerente puede continuar');
   renderWeekStatus();
 };
 
@@ -1524,6 +1613,8 @@ function renderWeekStatus(){
   });
 }
 
+window._renderWeekStatus = window.renderWeekStatus = renderWeekStatus;
+
 // ══════ UTILS ══════
 function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
 function setPill(el,txt,cls){if(!el)return;el.textContent=txt;el.className='kc-pill '+cls;}
@@ -1531,6 +1622,13 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 window.showToast=showToast;
 
 // ══════ INIT ══════
+// Register ALL module functions as globals when module loads
+window._renderComments = renderComments;
+window._renderAcuerdos = renderAcuerdos;
+window._renderAdminUsers = renderAdminUsers;
+window._populateEncTarget = populateEncTarget;
+window._renderWeekStatus = renderWeekStatus;
+
 async function init(){
   try{
     const fireUsers=await loadUsersFS();
