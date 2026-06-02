@@ -617,6 +617,13 @@ function updateWeekUI(){
   });
 }
 
+
+// ── Stubs for module functions (work before module loads) ──
+function sendComment(from){ if(window._sendComment)window._sendComment(from); else alert('Cargando... intenta de nuevo'); }
+function updateCommentStatus(key,id,status){ if(window._updateCommentStatus)window._updateCommentStatus(key,id,status); }
+function saveAdminUsers(){ if(window._saveAdminUsers)window._saveAdminUsers(); }
+function cerrarSemana(){ if(window._cerrarSemana)window._cerrarSemana(); else alert('Cargando...'); }
+function reabrirSemana(){ if(window._reabrirSemana)window._reabrirSemana(); else alert('Cargando...'); }
 document.addEventListener('DOMContentLoaded',function(){renderLoginUI();});
 </script>
 
@@ -797,7 +804,7 @@ async function saveComments(){
   try{await setDoc(commRef(),allComments,{merge:false});await setDoc(archRef(),{list:archivedComments},{merge:false});}catch(e){}
 }
 
-window.sendComment=async function(from){
+window._sendComment=window.sendComment=async function(from){
   const textEl=document.getElementById(from+'-comment-text');
   const targetEl=document.getElementById(from+'-comment-target');
   const text=textEl?.value?.trim();
@@ -807,7 +814,7 @@ window.sendComment=async function(from){
   if(!allComments[key])allComments[key]=[];
   allComments[key].push({
     id:Date.now()+'',text,from,fromName:currentUser.nombre,
-    status:'rojo',ts:new Date().toISOString()
+    targetId:target,status:'rojo',ts:new Date().toISOString()
   });
   await saveComments();
   if(textEl)textEl.value='';
@@ -815,7 +822,7 @@ window.sendComment=async function(from){
   showToast('✓ Comentario enviado');
 };
 
-window.updateCommentStatus=async function(key,id,status){
+window._updateCommentStatus=window.updateCommentStatus=async function(key,id,status){
   if(!allComments[key])return;
   const c=allComments[key].find(x=>x.id===id);
   if(!c)return;
@@ -883,10 +890,11 @@ function renderComments(){
     });
     div.innerHTML=html||'<div style="font-size:.72rem;color:var(--ink-faint);padding:8px;">Sin comentarios enviados</div>';
   }
-  // Update target selector
-  if(role==='enc'){
-    const sel=document.getElementById('enc-comment-target');
-    if(sel)sel.innerHTML=getMesUsers().map(m=>`<option value="${m.id}">→ ${m.nombre}</option>`).join('');
+  // Update target selector - always populate for enc
+  const encSelEl=document.getElementById('enc-comment-target');
+  if(encSelEl){
+    const mesUsers=users.filter(u=>u.role==='mes');
+    if(mesUsers.length>0)encSelEl.innerHTML=mesUsers.map(m=>`<option value="${m.id}">→ ${m.nombre}</option>`).join('');
   }
 }
 
@@ -905,6 +913,7 @@ function commentItemHTML(key,c,canCheck){
   </div>`;
 }
 
+window._renderAcuerdos=window.renderAcuerdos=
 function renderAcuerdos(){
   const div=document.getElementById('acuerdos-list');if(!div)return;
   if(!archivedComments.length){div.innerHTML='<div style="padding:20px;text-align:center;color:var(--ink-faint);font-size:.78rem;">No hay acuerdos completados aún</div>';return;}
@@ -917,7 +926,11 @@ function renderAcuerdos(){
   div.innerHTML=Object.keys(grouped).sort().reverse().map(k=>`
     <div style="margin-bottom:16px;">
       <div class="sec-title"><span>📅</span>${k}</div>
-      ${grouped[k].map(c=>`<div class="archived-item">✅ ${c.text} <span style="opacity:.6;">· para ${users.find(u=>u.id===c.key?.split('_')[1])?.nombre||'equipo'}</span></div>`).join('')}
+      ${grouped[k].map(c=>{
+    const targetUser=users.find(u=>u.id===c.targetId)||null;
+    const targetName=targetUser?targetUser.nombre:(c.targetId==='enc'?'Encargado':'equipo');
+    return `<div class="archived-item">✅ <strong>${c.fromName}</strong> → <strong>${targetName}</strong>: ${c.text} <span style="opacity:.6;font-size:.65rem;display:block;margin-top:2px;">${new Date(c.archivedAt||c.ts).toLocaleDateString('es-MX')}</span></div>`;
+  }).join('')}
     </div>`).join('');
 }
 
@@ -945,9 +958,16 @@ function fillInputs(){
   if(currentUser?.role==='enc'){const rEl=document.getElementById('enc-rev-inp');if(rEl&&document.activeElement!==rEl)rEl.value=getW().enc_reviews||'';}
   // Disable/enable inputs based on week status
   const closed=isCurrWeekClosed();
-  document.querySelectorAll('.pal-inp,.ic-inp,.mmc-inp,.pc-inp').forEach(el=>{
-    if(!el.classList.contains('ro-gold'))el.disabled=closed;
+  // Disable/enable all editable inputs
+  document.querySelectorAll('input[type="number"],input[type="text"],textarea,select').forEach(el=>{
+    if(!el.classList.contains('ro-gold')&&!el.id?.includes('apin')&&!el.id?.includes('aname')){
+      el.disabled=closed;
+      el.style.opacity=closed?'0.5':'1';
+    }
   });
+  // Hide save fab completely when closed
+  const fab=document.getElementById('save-fab');
+  if(fab)fab.style.display=(closed||currentUser?.role==='dg')?'none':'flex';
   renderWeekStatus();
 }
 
@@ -1121,6 +1141,7 @@ function renderEncPalancas(){
   div.innerHTML=rows;calcEnc();
 }
 window.renderEncPalancas=renderEncPalancas;
+window._populateEncTarget=populateEncTarget;
 
 // Populate enc comment target whenever enc panel loads
 function populateEncTarget(){
@@ -1391,9 +1412,9 @@ function renderAdminUsers(){
   const div=document.getElementById('admin-users-list');if(!div)return;
   div.innerHTML=users.map(u=>`<div class="admin-user-row"><div class="aur-av" style="background:${u.bg};color:${u.color};">${u.nombre.charAt(0)}</div><input class="aur-name-inp" id="aname-${u.id}" value="${u.nombre}" placeholder="Nombre"><input class="aur-inp" id="apin-${u.id}" value="${u.pin}" placeholder="PIN" maxlength="4" type="password"></div>`).join('');
 }
-window.renderAdminUsers=renderAdminUsers;
+window._renderAdminUsers=window.renderAdminUsers=renderAdminUsers;
 
-window.saveAdminUsers=async()=>{
+window._saveAdminUsers=window.saveAdminUsers=async()=>{
   users.forEach(u=>{const n=document.getElementById('aname-'+u.id);const p=document.getElementById('apin-'+u.id);if(n&&n.value.trim())u.nombre=n.value.trim();if(p&&p.value.trim().length>=4)u.pin=p.value.trim();});
   await saveUsersFS(users);showToast('✓ Guardado en la nube');renderAdminUsers();renderLoginUI();
 };
@@ -1442,7 +1463,7 @@ window.guardar=async()=>{
 };
 
 // ══════ CIERRE DE SEMANA ══════
-window.cerrarSemana=async function(){
+window._cerrarSemana=window.cerrarSemana=async function(){
   if(currentUser?.role!=='ger'){showToast('Solo el gerente puede cerrar semanas');return;}
   const pin=prompt('Ingresa tu PIN para cerrar la Semana '+week+':');
   if(!pin){return;}
@@ -1456,7 +1477,7 @@ window.cerrarSemana=async function(){
   document.getElementById('save-fab').style.display='none';
 };
 
-window.reabrirSemana=async function(){
+window._reabrirSemana=window.reabrirSemana=async function(){
   if(currentUser?.role!=='dg'){showToast('Solo Contraloría puede autorizar reapertura');return;}
   const pin=prompt('PIN de Contraloría para autorizar reapertura:');
   if(!pin||pin!==currentUser.pin){showToast('⛔ PIN incorrecto');return;}
