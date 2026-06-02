@@ -339,7 +339,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
       <div class="kpi-card ac-amber"><div class="kc-val" id="ger-vspe" style="font-size:1rem;">+$10K</div><div class="kc-sub">vs PE $104K</div></div>
       <div class="kpi-card ac-beer"><div class="kc-lbl">🏆 Mundial</div><div class="kc-val" id="ger-mundial-kpi">$0</div><div class="kc-sub">extra</div></div>
     </div>
-    <div class="sec-title"><span>⚡</span>Palancas del equipo</div>
+    <div id="ger-week-actions"></div><div class="sec-title"><span>⚡</span>Palancas del equipo</div>
     <div class="inp-card" id="ger-palancas"></div>
     <div class="sec-title"><span>👥</span>Desempeño individual</div>
     <div id="ger-equipo"></div>
@@ -387,7 +387,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
       </div>
       <div class="wn-dates" id="wn-enc-dates">📅 2 Jun — 8 Jun 2026</div>
     </div>
-    <div id="enc-comments-received"></div>
+    <div id="enc-closed-banner" style="display:none;background:var(--red-lt);border:1px solid var(--red);border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:.75rem;color:var(--red);font-weight:600;">🔒 Semana cerrada · Solo lectura</div><div id="enc-comments-received"></div>
     <div class="lvl-hdr lh-enc">
       <div class="lh-icon">📋</div>
       <div class="lh-info"><div class="lh-title" id="enc-nombre-hdr">Encargado de Turno</div><div class="lh-sub">Tu meta + equipo</div></div>
@@ -446,7 +446,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
       </div>
       <div class="wn-dates" id="wn-mes-dates">📅 2 Jun — 8 Jun 2026</div>
     </div>
-    <div id="mes-comments-received"></div>
+    <div id="mes-closed-banner" style="display:none;background:var(--red-lt);border:1px solid var(--red);border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:.75rem;color:var(--red);font-weight:600;">🔒 Semana cerrada · Solo lectura</div><div id="mes-comments-received"></div>
     <div class="lvl-hdr lh-mes">
       <div class="lh-icon">🍽️</div>
       <div class="lh-info"><div class="lh-title" id="mes-nombre-hdr">Mis metas</div><div class="lh-sub">Piezas · el sistema calcula el $</div></div>
@@ -560,7 +560,8 @@ function doLogin(){
   currentUser=u;
   document.getElementById('screen-login').style.display='none';
   document.getElementById('screen-app').style.display='block';
-  if(u.role!=='dg')document.getElementById('save-fab').style.display='flex';
+  if(u.role!=='dg'){document.getElementById('save-fab').style.display='flex';}
+  // Will be hidden again if week is closed
   document.getElementById('tb-user').textContent=u.nombre;
   buildTabs();updateWeekUI();
   if(window.appReady){window.appReady();}else{window.loginPending=true;}
@@ -701,9 +702,11 @@ const COSTO_CART=325,CERV_CART=24,C_CUB=6,C_IL2H=4,C_ILMT=3;
 
 // ══════ FIREBASE ══════
 let localData={};
+let semanasStatus={}; // {w1:{closed:true,closedBy:'ger',reopenedBy:null}, ...}
 const weekRef=w=>doc(db,'semanas','semana'+(w||week));
 const usersRef=()=>doc(db,'config','usuarios');
 const commRef=()=>doc(db,'comentarios','activos');
+const semanasStatusRef=()=>doc(db,'config','semanas_status');
 const archRef=()=>doc(db,'comentarios','archivados');
 
 function syncBar(msg,type='syncing'){
@@ -781,6 +784,15 @@ async function loadComments(){
     if(a.exists())archivedComments=a.data().list||[];
   }catch(e){allComments={};archivedComments=[];}
 }
+async function loadSemanasStatus(){
+  try{const s=await getDoc(semanasStatusRef());if(s.exists())semanasStatus=s.data();}catch(e){semanasStatus={};}
+}
+async function saveSemanasStatus(){
+  try{await setDoc(semanasStatusRef(),semanasStatus,{merge:false});}catch(e){}
+}
+function isWeekClosed(w){return semanasStatus['w'+(w||week)]?.closed===true;}
+function isCurrWeekClosed(){return isWeekClosed(week);}
+
 async function saveComments(){
   try{await setDoc(commRef(),allComments,{merge:false});await setDoc(archRef(),{list:archivedComments},{merge:false});}catch(e){}
 }
@@ -931,6 +943,12 @@ function fillInputs(){
     const rEl=document.getElementById('mes-rev-inp');if(rEl&&document.activeElement!==rEl)rEl.value=getMD(mid).reviews||'';
   }
   if(currentUser?.role==='enc'){const rEl=document.getElementById('enc-rev-inp');if(rEl&&document.activeElement!==rEl)rEl.value=getW().enc_reviews||'';}
+  // Disable/enable inputs based on week status
+  const closed=isCurrWeekClosed();
+  document.querySelectorAll('.pal-inp,.ic-inp,.mmc-inp,.pc-inp').forEach(el=>{
+    if(!el.classList.contains('ro-gold'))el.disabled=closed;
+  });
+  renderWeekStatus();
 }
 
 // ══════ DG ══════
@@ -1103,6 +1121,14 @@ function renderEncPalancas(){
   div.innerHTML=rows;calcEnc();
 }
 window.renderEncPalancas=renderEncPalancas;
+
+// Populate enc comment target whenever enc panel loads
+function populateEncTarget(){
+  const sel=document.getElementById('enc-comment-target');
+  if(!sel)return;
+  const mesUsers=users.filter(u=>u.role==='mes');
+  sel.innerHTML=mesUsers.map(m=>`<option value="${m.id}">→ ${m.nombre}</option>`).join('');
+}
 
 window.calcEnc=()=>{
   let total=0;
@@ -1374,6 +1400,9 @@ window.saveAdminUsers=async()=>{
 
 // ══════ GUARDAR ══════
 window.guardar=async()=>{
+  if(isCurrWeekClosed()){
+    showToast('⛔ Semana cerrada · Contraloría debe autorizar reapertura');return;
+  }
   const wData=getW();
   const encP={};PALANCAS.forEach(p=>{const el=document.getElementById('enc-inp-'+p.id);encP[p.id]=el?(parseFloat(el.value)||0):(wData.enc_p?.[p.id]||0);});
   const mes=JSON.parse(JSON.stringify(wData.mes||{}));
@@ -1412,6 +1441,68 @@ window.guardar=async()=>{
   showToast('✓ Guardado y sincronizado');
 };
 
+// ══════ CIERRE DE SEMANA ══════
+window.cerrarSemana=async function(){
+  if(currentUser?.role!=='ger'){showToast('Solo el gerente puede cerrar semanas');return;}
+  const pin=prompt('Ingresa tu PIN para cerrar la Semana '+week+':');
+  if(!pin){return;}
+  if(pin!==currentUser.pin){showToast('⛔ PIN incorrecto');return;}
+  const confirm=window.confirm('¿Confirmas el cierre de la Semana '+week+'? El equipo no podrá editar datos.');
+  if(!confirm)return;
+  semanasStatus['w'+week]={closed:true,closedBy:currentUser.nombre,closedAt:new Date().toISOString(),reopenedBy:null};
+  await saveSemanasStatus();
+  showToast('✓ Semana '+week+' cerrada');
+  renderWeekStatus();
+  document.getElementById('save-fab').style.display='none';
+};
+
+window.reabrirSemana=async function(){
+  if(currentUser?.role!=='dg'){showToast('Solo Contraloría puede autorizar reapertura');return;}
+  const pin=prompt('PIN de Contraloría para autorizar reapertura:');
+  if(!pin||pin!==currentUser.pin){showToast('⛔ PIN incorrecto');return;}
+  semanasStatus['w'+week]={...semanasStatus['w'+week],closed:false,reopenedBy:currentUser.nombre,reopenedAt:new Date().toISOString()};
+  await saveSemanasStatus();
+  showToast('✓ Semana '+week+' reabierta');
+  renderWeekStatus();
+};
+
+function renderWeekStatus(){
+  // Show/hide save fab based on week status and role
+  const fab=document.getElementById('save-fab');
+  if(!fab||!currentUser)return;
+  const closed=isCurrWeekClosed();
+  const canEdit=currentUser.role!=='dg';
+  if(canEdit&&!closed)fab.style.display='flex';
+  else fab.style.display='none';
+  // Update week nav to show lock icon
+  ['ger','enc','mes','dg'].forEach(id=>{
+    const lbl=document.getElementById('wn-'+id+'-l');
+    if(lbl){
+      const base=SEMANAS[week-1]?.label||'Semana '+week;
+      lbl.textContent=closed?'🔒 '+base:base;
+    }
+  });
+  // Show close/reopen buttons in ger panel
+  const gerCloseDiv=document.getElementById('ger-week-actions');
+  if(gerCloseDiv){
+    if(closed){
+      const st=semanasStatus['w'+week];
+      gerCloseDiv.innerHTML=`<div style="background:var(--red-lt);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;color:var(--red);">🔒 Semana ${week} cerrada</div>
+        <div style="font-size:.65rem;color:var(--ink-dim);margin-top:4px;">Cerrada por ${st?.closedBy||'gerente'}</div>
+        ${currentUser.role==='dg'?`<button onclick="reabrirSemana()" style="margin-top:8px;background:var(--amber);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;cursor:pointer;">🔓 Autorizar Reapertura</button>`:'<div style="font-size:.63rem;color:var(--ink-dim);margin-top:6px;">Contraloría debe autorizar reapertura</div>'}
+      </div>`;
+    } else {
+      gerCloseDiv.innerHTML=`<button onclick="cerrarSemana()" style="width:100%;padding:11px;background:var(--red);color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;margin-bottom:10px;">🔒 Cerrar Semana ${week}</button>`;
+    }
+  }
+  // Show readonly banner for closed weeks
+  ['enc','mes'].forEach(role=>{
+    const banner=document.getElementById(role+'-closed-banner');
+    if(banner)banner.style.display=closed?'block':'none';
+  });
+}
+
 // ══════ UTILS ══════
 function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
 function setPill(el,txt,cls){if(!el)return;el.textContent=txt;el.className='kc-pill '+cls;}
@@ -1425,6 +1516,7 @@ async function init(){
     if(fireUsers&&fireUsers.length>0){Object.assign(users,fireUsers);window.users=fireUsers;renderLoginUI();}
   }catch(e){}
   await loadComments();
+  await loadSemanasStatus();
   // Expose loadWeekFn
   window.loadWeekFn=async function(w){
     const data=await loadFS(w);localData['w'+w]=data;refreshAll();subscribeWeek(w);
@@ -1432,6 +1524,8 @@ async function init(){
   window.appReady=async function(){
     updateWeekUI();
     await window.loadWeekFn(week);
+    if(window.renderWeekStatus)renderWeekStatus();
+    if(window.populateEncTarget)populateEncTarget();
   };
   if(window.loginPending){window.loginPending=false;await window.appReady();}
 }
