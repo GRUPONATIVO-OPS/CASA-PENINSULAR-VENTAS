@@ -724,7 +724,6 @@ function renderLogin(){
     </div>`).join('');
 }
 const roleLabel=r=>r==='dg'?'Solo lectura':r==='ger'?'Gerente':r==='enc'?'Encargado':'Mesero';
-window._selUserLoaded=id=>{ window.selUser(id); };
 window.selUser=id=>{
   selUserId=id;
   users.forEach(u=>document.getElementById('ubtn-'+u.id)?.classList.remove('sel'));
@@ -739,7 +738,6 @@ window.pinDel=()=>{pinBuf=pinBuf.slice(0,-1);updateDots();};
 function updateDots(){
   document.getElementById('pin-dots').innerHTML=[0,1,2,3].map(i=>`<div class="pin-dot ${i<pinBuf.length?'filled':''}"></div>`).join('');
 }
-window._doLoginLoaded=async()=>{ await window.doLogin(); };
 window.doLogin=async()=>{
   const u=users.find(x=>x.id===selUserId);
   if(!u){document.getElementById('pin-error').textContent='Selecciona un usuario';return;}
@@ -1085,15 +1083,6 @@ function renderGerMundial(){
   div.innerHTML=html;
 }
 
-function calcProyeccionMundialSemana(){
-  const partidos=PARTIDOS[week]||[];
-  let total=0;
-  partidos.forEach(p=>{
-    if(p.tipo==='premium') total+=((p.proy_cubetas||0)*P_CUBETA+(p.proy_ind||0)*P_IND);
-    else{const pr=p.tipo==='medio'?P_IL2H:P_ILMT;total+=((p.proy_il||0)*pr+(p.proy_ind||0)*P_IND);}
-  });
-  return total;
-}
 
 function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
 function setPill(el,txt,cls){if(!el)return;el.textContent=txt;el.className='kc-pill '+cls;}
