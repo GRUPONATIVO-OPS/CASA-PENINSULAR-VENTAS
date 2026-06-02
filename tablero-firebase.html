@@ -1084,6 +1084,264 @@ function renderGerMundial(){
 }
 
 
+
+// ══════ MESERO VENTAS ══════
+function renderMesPalancas(){
+  if(!currentUser||currentUser.role!=='mes')return;
+  const mid=currentUser.id;
+  const div=document.getElementById('mes-palancas');if(!div)return;
+  const saved=getMD(mid);let rows='';
+  PALANCAS.forEach(p=>{
+    const piezas=saved[p.id]||'';
+    const meta=metaPiezasMes(p.id);
+    const pct=meta>0?Math.min(100,Math.round(((parseFloat(piezas)||0)/meta)*100)):0;
+    rows+=`<div class="pal-row">
+      <div class="pal-icon">${p.emoji}</div>
+      <div class="pal-info">
+        <div class="pal-name">${p.label}</div>
+        <div class="pal-meta" id="mp-sub-${p.id}">
+          <span class="pal-meta-chip">Meta: ${meta} pzas</span> Llevas: ${parseFloat(piezas)||0}
+        </div>
+        <div class="pal-bar-wrap"><div class="pal-bar" id="mp-bar-${p.id}" style="width:${pct}%;background:${p.color};"></div></div>
+      </div>
+      <div class="pal-inp-wrap">
+        <input class="pal-inp" type="number" id="mp-inp-${p.id}" value="${piezas}" placeholder="0" oninput="calcMes()">
+        <div class="pal-sub" id="mp-pct-${p.id}">${pct}%</div>
+      </div>
+    </div>`;
+  });
+  div.innerHTML=rows;
+  setText('mes-nombre-hdr',currentUser.nombre+' — Mis metas');
+  calcMes();
+}
+
+window.calcMes=()=>{
+  if(!currentUser||currentUser.role!=='mes')return;
+  let totalPz=0;
+  const metaTotal=PALANCAS.reduce((s,p)=>s+metaPiezasMes(p.id),0);
+  PALANCAS.forEach(p=>{
+    const piezas=parseFloat(document.getElementById('mp-inp-'+p.id)?.value)||0;
+    const meta=metaPiezasMes(p.id);totalPz+=piezas;
+    const pct=meta>0?Math.min(100,Math.round((piezas/meta)*100)):0;
+    const bar=document.getElementById('mp-bar-'+p.id);
+    const sub=document.getElementById('mp-sub-'+p.id);
+    const pctEl=document.getElementById('mp-pct-'+p.id);
+    if(bar)bar.style.width=pct+'%';
+    if(sub)sub.innerHTML=`<span class="pal-meta-chip">Meta: ${meta} pzas</span> Llevas: ${piezas}`;
+    if(pctEl)pctEl.textContent=pct+'%';
+    setText('mes-kpi-'+p.id,piezas);
+    setText('mes-kpi-'+p.id+'-m','meta '+meta);
+  });
+  const pct=metaTotal>0?((totalPz/metaTotal)*100).toFixed(1):0;
+  setText('mes-piezas-total',totalPz);
+  setText('mes-piezas-meta','Meta: '+metaTotal+' piezas');
+  setText('mes-pct',pct+'%');
+  const pill=document.getElementById('mes-pill'),tag=document.getElementById('mes-tag');
+  if(totalPz>=metaTotal){setPill(pill,'✓ Meta lograda','p-ok');tag.textContent='✓ '+pct+'%';}
+  else if(totalPz>0){setPill(pill,pct+'% logrado','p-warn');tag.textContent=pct+'%';}
+  else{setPill(pill,'Sin datos','p-neu');tag.textContent='—';}
+};
+
+window.calcMesReviews=()=>{
+  const val=parseInt(document.getElementById('mes-rev-inp')?.value)||0;
+  const pct=Math.round((val/META_REV_MES)*100);
+  setText('mes-rev-esta',val);
+  setText('mes-rev-pct',pct+'%');
+};
+
+// ══════ MESERO MUNDIAL ══════
+function renderMesMundial(){
+  const div=document.getElementById('mes-mundial-section');if(!div)return;
+  if(!currentUser||currentUser.role!=='mes'){div.innerHTML='';return;}
+  if(!SEMANAS[week-1].mundial){div.innerHTML='';return;}
+  const partidos=PARTIDOS[week]||[];
+  if(!partidos.length){div.innerHTML='';return;}
+  const mid=currentUser.id;
+  const mdata=getMundialW();
+  let html=`<div class="sec-title"><span>🏆</span>Tu meta mundial</div>`;
+  partidos.forEach((p,i)=>{
+    const d=((mdata.por_usuario||{})[mid]||{})['p'+i]||{};
+    const metaMain=p.tipo==='premium'?META_CUBI_MES_POR_PART:META_IL_POR_PART;
+    const realMain=p.tipo==='premium'?(parseFloat(d.cubetas)||0):(parseFloat(d.personas)||0);
+    const indReal=parseFloat(d.ind)||0;
+    const pct=metaMain>0?Math.min(100,Math.round((realMain/metaMain)*100)):0;
+    const badgeClass=p.tipo==='premium'?'badge-premium':p.tipo==='medio'?'badge-medio':'badge-bajo';
+    const tipoLabel=p.tipo==='premium'?'🪣 Cubeta $300':p.tipo==='medio'?'🕑 Ilimitada 2h $200':'⏱️ Ilimitada MT $100';
+    const mainLabel=p.tipo==='premium'
+      ?`🪣 Tus cubetas (meta ${metaMain})`
+      :`${p.tipo==='medio'?'🕑':'⏱️'} Personas ilimitada (meta ${metaMain})`;
+    html+=`
+      <div class="mes-mundial-card" style="margin-bottom:8px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">
+          <span class="pc-badge ${badgeClass}" style="margin-top:2px;">${tipoLabel}</span>
+          <div>
+            <div style="font-weight:700;font-size:.82rem;color:#f7f3ed;">${p.match}</div>
+            <div style="font-size:.6rem;opacity:.6;">${p.fecha}</div>
+          </div>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;margin-bottom:10px;">
+          <div style="height:100%;width:${pct}%;background:var(--beer);border-radius:2px;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:.65rem;flex:1;opacity:.8;">${mainLabel}</span>
+          <input class="mmc-inp" type="number" id="mes-m-${mid}-p${i}-main"
+            value="${p.tipo==='premium'?(d.cubetas||''):(d.personas||'')}"
+            placeholder="${metaMain}" oninput="calcMesMundialLive()" style="width:70px;">
+          <span style="font-size:.62rem;opacity:.6;">/${metaMain}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:.65rem;flex:1;opacity:.8;">🍺 Individuales adicionales</span>
+          <input class="mmc-inp" type="number" id="mes-m-${mid}-p${i}-ind"
+            value="${indReal||''}" placeholder="0" oninput="calcMesMundialLive()" style="width:70px;">
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">
+          <span style="font-size:.62rem;opacity:.6;">${pct}% de tu meta · ${p.tipo==='premium'?'meta total '+p.proy_cubetas+' cubetas':'meta total '+(p.proy_il||0)+' personas'}</span>
+          <span style="font-family:'Syne',sans-serif;font-weight:700;color:var(--beer);" id="mes-m-total-p${i}">$0</span>
+        </div>
+      </div>`;
+  });
+  div.innerHTML=html;
+  calcMesMundialLive();
+}
+
+window.calcMesMundialLive=()=>{
+  if(!currentUser||currentUser.role!=='mes')return;
+  const mid=currentUser.id;
+  const partidos=PARTIDOS[week]||[];
+  partidos.forEach((p,i)=>{
+    const mainEl=document.getElementById(`mes-m-${mid}-p${i}-main`);
+    const indEl=document.getElementById(`mes-m-${mid}-p${i}-ind`);
+    const mainVal=parseFloat(mainEl?.value)||0;
+    const indVal=parseFloat(indEl?.value)||0;
+    const precio=p.tipo==='premium'?P_CUBETA:(p.tipo==='medio'?P_IL2H:P_ILMT);
+    const total=mainVal*precio+indVal*P_IND;
+    setText(`mes-m-total-p${i}`,'$'+Math.round(total).toLocaleString());
+  });
+};
+
+// ══════ RANKING ══════
+function renderRanking(){
+  const enc=users.find(u=>u.role==='enc');
+  const encT=totPesos(readEncP());
+  const items=[
+    {nombre:enc?enc.nombre:'Encargado',color:enc?enc.color:'#3d2010',total:encT,meta:META_ENC_$,icon:'📋'},
+    ...getMesUsers().map(m=>({nombre:m.nombre,color:m.color,total:totPesos(readMesP(m.id)),meta:META_MES_$,icon:'🍽️'}))
+  ].sort((a,b)=>b.total-a.total);
+  const emojis=['🥇','🥈','🥉','4️⃣'];const poses=['p1','p2','p3',''];
+  const rankDiv=document.getElementById('rank-list');
+  if(!rankDiv)return;
+  rankDiv.innerHTML=items.map((it,i)=>{
+    const pct=Math.round((it.total/it.meta)*100);
+    const pc=pct>=100?'p-ok':pct>50?'p-warn':'p-off';
+    return `<div class="rank-item">
+      <div class="rank-pos ${poses[i]}">${emojis[i]}</div>
+      <div style="font-size:1rem;">${it.icon}</div>
+      <div class="rank-info"><div class="rank-name">${it.nombre}</div><div class="rank-det">Meta $${it.meta.toLocaleString()}</div></div>
+      <div class="rank-right"><div class="rank-val" style="color:${it.color};">$${it.total.toLocaleString()}</div><span class="kc-pill ${pc}">${pct}%</span></div>
+    </div>`;
+  }).join('');
+  const totalEq=items.reduce((s,it)=>s+it.total,0);
+  setText('rank-best',items[0].total>0?items[0].nombre:'—');
+  setText('rank-best-val',items[0].total>0?'$'+items[0].total.toLocaleString():'Sin datos');
+  setText('rank-total','$'+totalEq.toLocaleString());
+  setText('rank-pct',((totalEq/INC_OBJ)*100).toFixed(0)+'% del objetivo');
+  const hist=Object.keys(localData).sort().map(k=>{
+    const wd=localData[k];if(!wd.saved_total)return '';
+    const n=k.replace('w','');
+    const pct=Math.min(100,Math.round((wd.saved_total/META_SEM)*100));
+    return `<div class="hist-item">
+      <div class="hist-sem">Sem ${n}</div>
+      <div class="hist-bar-wrap"><div class="hist-bar" style="width:${pct}%;"></div></div>
+      <div class="hist-val">$${Math.round(wd.saved_total).toLocaleString()}</div>
+      <div style="font-size:.75rem;">${wd.saved_total>=META_SEM?'✅':'📈'}</div>
+    </div>`;
+  }).filter(Boolean).join('');
+  document.getElementById('hist-list').innerHTML=hist||'<div style="font-size:.72rem;color:var(--ink-faint);padding:8px 0;">Guarda semanas para ver historial</div>';
+}
+
+// ══════ ADMIN ══════
+function renderAdminUsers(){
+  const div=document.getElementById('admin-users-list');if(!div)return;
+  div.innerHTML=users.map(u=>`
+    <div class="admin-user-row">
+      <div class="aur-av" style="background:${u.bg};color:${u.color};">${u.nombre.charAt(0)}</div>
+      <input class="aur-name-inp" id="aname-${u.id}" value="${u.nombre}" placeholder="Nombre">
+      <input class="aur-inp" id="apin-${u.id}" value="${u.pin}" placeholder="PIN" maxlength="4" type="password">
+    </div>`).join('');
+}
+window.saveAdminUsers=async()=>{
+  users.forEach(u=>{
+    const n=document.getElementById('aname-'+u.id);
+    const p=document.getElementById('apin-'+u.id);
+    if(n&&n.value.trim())u.nombre=n.value.trim();
+    if(p&&p.value.trim().length>=4)u.pin=p.value.trim();
+  });
+  await saveUsersFS(users);
+  showToast('✓ Guardado en la nube');
+  renderAdminUsers();renderLogin();
+};
+
+// ══════ GUARDAR ══════
+window.guardar=async()=>{
+  const wData=getW();
+  const encP={};
+  PALANCAS.forEach(p=>{
+    const el=document.getElementById('enc-inp-'+p.id);
+    encP[p.id]=el?(parseFloat(el.value)||0):(wData.enc_p?.[p.id]||0);
+  });
+  const mes=JSON.parse(JSON.stringify(wData.mes||{}));
+  let enc_reviews=wData.enc_reviews||0;
+  const mundial=JSON.parse(JSON.stringify(wData.mundial||{por_usuario:{}}));
+  mundial.por_usuario=mundial.por_usuario||{};
+
+  if(currentUser?.role==='mes'){
+    const mid=currentUser.id;mes[mid]=mes[mid]||{};
+    PALANCAS.forEach(p=>{
+      const el=document.getElementById('mp-inp-'+p.id);
+      if(el)mes[mid][p.id]=parseFloat(el.value)||0;
+    });
+    const rEl=document.getElementById('mes-rev-inp');
+    if(rEl)mes[mid].reviews=parseFloat(rEl.value)||0;
+    mundial.por_usuario[mid]=mundial.por_usuario[mid]||{};
+    const partidos=PARTIDOS[week]||[];
+    partidos.forEach((p,i)=>{
+      mundial.por_usuario[mid]['p'+i]=mundial.por_usuario[mid]['p'+i]||{};
+      const mainEl=document.getElementById(`mes-m-${mid}-p${i}-main`);
+      const indEl=document.getElementById(`mes-m-${mid}-p${i}-ind`);
+      if(p.tipo==='premium'){if(mainEl)mundial.por_usuario[mid]['p'+i].cubetas=parseFloat(mainEl.value)||0;}
+      else{if(mainEl)mundial.por_usuario[mid]['p'+i].personas=parseFloat(mainEl.value)||0;}
+      if(indEl)mundial.por_usuario[mid]['p'+i].ind=parseFloat(indEl.value)||0;
+    });
+  } else if(currentUser?.role==='enc'){
+    const rEl=document.getElementById('enc-rev-inp');
+    if(rEl)enc_reviews=parseFloat(rEl.value)||0;
+    const partidos=PARTIDOS[week]||[];
+    const allCapturantes=[...getMesUsers(),users.find(u=>u.role==='enc')].filter(Boolean);
+    allCapturantes.forEach(u=>{
+      mundial.por_usuario[u.id]=mundial.por_usuario[u.id]||{};
+      partidos.forEach((p,i)=>{
+        mundial.por_usuario[u.id]['p'+i]=mundial.por_usuario[u.id]['p'+i]||{};
+        const mainEl=document.getElementById(`enc-m-${u.id}-p${i}`);
+        const indEl=document.getElementById(`enc-m-ind-${u.id}-p${i}`);
+        if(mainEl){
+          if(p.tipo==='premium')mundial.por_usuario[u.id]['p'+i].cubetas=parseFloat(mainEl.value)||0;
+          else mundial.por_usuario[u.id]['p'+i].personas=parseFloat(mainEl.value)||0;
+        }
+        if(indEl)mundial.por_usuario[u.id]['p'+i].ind=parseFloat(indEl.value)||0;
+      });
+    });
+  } else if(currentUser?.role==='ger'){
+    // Gerente solo guarda lo que viene de meseros y encargado — no edita
+  }
+
+  const encT=totPesos(encP);
+  let mesT=0;getMesUsers().forEach(m=>mesT+=totPesos(mes[m.id]||{}));
+  const payload={enc_p:encP,mes,enc_reviews,mundial,saved_total:BASE+encT+mesT};
+  localData['w'+week]=payload;
+  await saveFS(week,payload);
+  showToast('✓ Guardado y sincronizado');
+};
+
 function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
 function setPill(el,txt,cls){if(!el)return;el.textContent=txt;el.className='kc-pill '+cls;}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
