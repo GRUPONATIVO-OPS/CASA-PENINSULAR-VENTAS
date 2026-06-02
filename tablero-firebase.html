@@ -535,6 +535,54 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
 <button class="fab" id="save-fab" onclick="guardar()" style="display:none;">💾 GUARDAR</button>
 <div class="toast" id="toast">✓ Guardado</div>
 
+<script>
+// Global placeholders so onclick handlers work even before module loads
+var _pendingUser = null;
+var _pinBuffer = '';
+function selUser(id){ 
+  if(window._selUserLoaded){ window._selUserLoaded(id); return; }
+  // Highlight selected
+  document.querySelectorAll('.user-btn').forEach(function(b){ b.classList.remove('sel'); });
+  var btn = document.getElementById('ubtn-'+id);
+  if(btn) btn.classList.add('sel');
+  _pendingUser = id;
+  document.getElementById('pin-section').style.display='block';
+  var u = DEFAULT_USERS_INLINE.find(function(x){ return x.id===id; });
+  if(u) document.getElementById('pin-lbl').textContent = 'PIN de '+u.nombre;
+  _pinBuffer = '';
+  updatePinDisplay();
+}
+function pinKey(k){ if(_pinBuffer.length<4){ _pinBuffer+=k; updatePinDisplay(); } }
+function pinDel(){ _pinBuffer=_pinBuffer.slice(0,-1); updatePinDisplay(); }
+function updatePinDisplay(){
+  document.getElementById('pin-dots').innerHTML=[0,1,2,3].map(function(i){ return '<div class="pin-dot '+(i<_pinBuffer.length?'filled':'')+'"></div>'; }).join('');
+}
+function doLogin(){
+  if(window._doLoginLoaded){ window._doLoginLoaded(); return; }
+  document.getElementById('pin-error').textContent = 'Cargando... intenta en un momento';
+  setTimeout(function(){ if(window._doLoginLoaded) window._doLoginLoaded(); }, 1000);
+}
+</script>
+<script>
+// Render login immediately with default users - no Firebase needed
+var DEFAULT_USERS_INLINE = [
+  {id:'dg',  role:'dg',  nombre:'Director General', pin:'1771', color:'#7a4a00', bg:'#fef3e2'},
+  {id:'cont',role:'dg',  nombre:'Contraloría',      pin:'9999', color:'#1a3a5f', bg:'#e8f1f8'},
+  {id:'ger', role:'ger', nombre:'Miguel Rojas',     pin:'1234', color:'#1c1712', bg:'#e8e2d8'},
+  {id:'enc', role:'enc', nombre:'Encargado',        pin:'2222', color:'#3d2010', bg:'#f5e8d8'},
+  {id:'m1',  role:'mes', nombre:'Mesero 1',         pin:'3333', color:'#e07820', bg:'#fef0e0'},
+  {id:'m2',  role:'mes', nombre:'Mesero 2',         pin:'4444', color:'#6d3aad', bg:'#f0ebfa'},
+  {id:'m3',  role:'mes', nombre:'Mesero 3',         pin:'5555', color:'#1e7a3e', bg:'#e6f4ec'},
+];
+function renderLoginImmediate(userList) {
+  var ul = document.getElementById('user-list');
+  if(!ul) return;
+  ul.innerHTML = userList.map(function(u){ return '<div class="user-btn" id="ubtn-'+u.id+'" onclick="selUser(\''+u.id+'\')"><div class="ub-av" style="background:'+u.bg+';color:'+u.color+';">'+u.nombre.charAt(0)+'</div><div class="ub-info"><div class="ub-name">'+u.nombre+'</div><div class="ub-role">'+(u.role==='dg'?'Solo lectura':u.role==='ger'?'Gerente':u.role==='enc'?'Encargado':'Mesero')+'</div></div><div style="font-size:.7rem;color:rgba(255,255,255,.3);">›</div></div>'; }).join('');
+}
+document.addEventListener('DOMContentLoaded', function(){
+  renderLoginImmediate(DEFAULT_USERS_INLINE);
+});
+</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -676,6 +724,7 @@ function renderLogin(){
     </div>`).join('');
 }
 const roleLabel=r=>r==='dg'?'Solo lectura':r==='ger'?'Gerente':r==='enc'?'Encargado':'Mesero';
+window._selUserLoaded=id=>{ window.selUser(id); };
 window.selUser=id=>{
   selUserId=id;
   users.forEach(u=>document.getElementById('ubtn-'+u.id)?.classList.remove('sel'));
@@ -690,6 +739,7 @@ window.pinDel=()=>{pinBuf=pinBuf.slice(0,-1);updateDots();};
 function updateDots(){
   document.getElementById('pin-dots').innerHTML=[0,1,2,3].map(i=>`<div class="pin-dot ${i<pinBuf.length?'filled':''}"></div>`).join('');
 }
+window._doLoginLoaded=async()=>{ await window.doLogin(); };
 window.doLogin=async()=>{
   const u=users.find(x=>x.id===selUserId);
   if(!u){document.getElementById('pin-error').textContent='Selecciona un usuario';return;}
