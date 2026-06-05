@@ -632,7 +632,7 @@ function showTab(id){
 
 // Week nav stubs
 var week=1;
-function changeWeek(d){week=Math.max(1,Math.min(7,week+d));updateWeekUI();if(window.loadWeekFn)loadWeekFn(week);}
+function changeWeek(d){week=Math.max(1,Math.min(13,week+d));updateWeekUI();if(window.loadWeekFn)loadWeekFn(week);}
 function updateWeekUI(){
   var c=SEMANAS[week-1];
   document.getElementById('tb-week').textContent='SEM '+week;
@@ -1036,11 +1036,27 @@ function refreshAll(){
   const activePanel=document.querySelector('.panel.active');
   if(!activePanel)return;
   const pid=activePanel.id.replace('panel-','');
-  if(pid==='enc'){renderEncPalancas();renderEncEquipo();renderEncMundial();renderComments();}
-  if(pid==='mes'){renderMesPalancas();renderMesMundial();renderComments();}
-  if(pid==='ger'){renderGerMundial();renderComments();window.renderCierreMensual&&renderCierreMensual();}
-  if(pid==='dg')renderDG();
-  if(pid==='rank')renderRanking();
+  if(pid==='enc'){
+    window.renderEncPalancas&&renderEncPalancas();
+    window.renderEncEquipo&&renderEncEquipo();
+    window.renderEncMundial&&renderEncMundial();
+    renderComments();
+  }
+  if(pid==='mes'){
+    window.renderMesPalancas&&renderMesPalancas();
+    window.renderMesMundial&&renderMesMundial();
+    renderComments();
+  }
+  if(pid==='ger'){
+    window.renderGerMundial&&renderGerMundial();
+    renderComments();
+    window.renderCierreMensual&&renderCierreMensual();
+  }
+  if(pid==='dg'){
+    window.renderDG&&renderDG();
+    window.renderDGResumenes&&renderDGResumenes();
+  }
+  if(pid==='rank') window.renderRanking&&renderRanking();
 }
 
 function fillInputs(){
@@ -1516,7 +1532,7 @@ window.calcMesReviews=()=>{
 
 function renderMesMundial(){
   const div=document.getElementById('mes-mundial-section');if(!div)return;
-  if(!currentUser||currentUser.role!=='mes'||!SEMANAS[week-1].mundial){div.innerHTML='';return;}
+  if(!currentUser||(currentUser.role!=='mes'&&currentUser.role!=='bar')||!SEMANAS[week-1].mundial){div.innerHTML='';return;}
   const partidos=PARTIDOS[week]||[];if(!partidos.length){div.innerHTML='';return;}
   const mid=currentUser.id;const mdata=getMundialW();
   let html=`<div class="sec-title"><span>🏆</span>Tu meta mundial</div>`;
@@ -1574,7 +1590,7 @@ function renderRanking(){
     {nombre:enc?enc.nombre:'Encargado',color:enc?enc.color:'#3d2010',total:encT,meta:ENC_META_FIJO,icon:'📋'},
     ...getTeamUsers().map(m=>({nombre:m.nombre,color:m.color,total:totPesos(readMesP(m.id)),meta:getMetaUser(m.id),icon:m.role==='bar'?'🍺':'🍽️'}))
   ].sort((a,b)=>b.total-a.total);
-  const emojis=['🥇','🥈','🥉','4️⃣'];const poses=['p1','p2','p3',''];
+  const emojis=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣'];const poses=['p1','p2','p3','','','','',''];
   const rankDiv=document.getElementById('rank-list');if(!rankDiv)return;
   rankDiv.innerHTML=items.map((it,i)=>{
     const pct=Math.round((it.total/it.meta)*100);const pc=pct>=100?'p-ok':pct>50?'p-warn':'p-off';
@@ -1615,7 +1631,7 @@ window.guardar=async()=>{
   let enc_reviews=wData.enc_reviews||0;
   const mundial=JSON.parse(JSON.stringify(wData.mundial||{por_usuario:{}}));
   mundial.por_usuario=mundial.por_usuario||{};
-  if(currentUser?.role==='mes'){
+  if(currentUser?.role==='mes'||currentUser?.role==='bar'){
     const mid=currentUser.id;mes[mid]=mes[mid]||{};
     PALANCAS.forEach(p=>{const el=document.getElementById('mp-inp-'+p.id);if(el)mes[mid][p.id]=parseFloat(el.value)||0;});
     const rEl=document.getElementById('mes-rev-inp');if(rEl)mes[mid].reviews=parseFloat(rEl.value)||0;
