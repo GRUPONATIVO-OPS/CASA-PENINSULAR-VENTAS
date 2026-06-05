@@ -307,6 +307,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
     <div class="inp-card"><div class="rank-dg" id="dg-ranking-equipo"></div></div>
     <div class="sec-title"><span>📈</span>Tendencia semanal</div>
     <div class="inp-card"><div class="hist-dg" id="dg-historial"></div></div>
+    <div class="sec-title"><span>📋</span>Resúmenes mensuales</div>
+    <div id="dg-resumenes-mensuales"></div>
     <div class="sec-title"><span>💬</span>Comentarios del equipo</div>
     <div id="dg-comentarios"></div>
   </div>
@@ -371,6 +373,8 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
     </div>
     <div class="sec-title"><span>📋</span>Comentarios enviados</div>
     <div id="ger-comments-sent"></div>
+    <div class="sec-title"><span>📅</span>Cierre y resumen mensual</div>
+    <div id="ger-cierre-mensual"></div>
     <div class="sec-title"><span>⚙️</span>Administración</div>
     <div class="admin-section">
       <div class="admin-title">Nombres y PINs del equipo</div>
@@ -622,7 +626,7 @@ function showTab(id){
   if(id==='enc'){window.renderEncPalancas&&renderEncPalancas();window.renderEncEquipo&&renderEncEquipo();window.renderEncMundial&&renderEncMundial();renderComments();}
   if(id==='ger'){window.renderGerPalancas&&renderGerPalancas();renderAdminUsers();window.renderGerMundial&&renderGerMundial();renderComments();}
   if(id==='mes'){window.renderMesPalancas&&renderMesPalancas();window.renderMesMundial&&renderMesMundial();renderComments();}
-  if(id==='dg'){window.renderDG&&renderDG();renderComments();}
+  if(id==='dg'){window.renderDG&&renderDG();renderComments();window.renderDGResumenes&&renderDGResumenes();}
   if(id==='acuerdos')renderAcuerdos();
 }
 
@@ -645,6 +649,9 @@ function updateCommentStatus(key,id,status){ if(window._updateCommentStatus)wind
 function saveAdminUsers(){ if(window._saveAdminUsers)window._saveAdminUsers(); }
 function cerrarSemana(){ if(window._cerrarSemana)window._cerrarSemana(); else alert('Cargando...'); }
 function resetDatos(){ if(window.resetDatos)window.resetDatos(); else alert('Cargando...'); }
+function verResumenMes(n){ if(window.verResumenMes)window.verResumenMes(n); else alert('Cargando...'); }
+function cerrarModalResumen(){ if(window.cerrarModalResumen)window.cerrarModalResumen(); }
+function descargarResumenPDF(n){ if(window.descargarResumenPDF)window.descargarResumenPDF(n); else alert('Cargando...'); }
 function reabrirSemana(){ if(window._reabrirSemana)window._reabrirSemana(); else alert('Cargando...'); }
 function reabrirSemanaEspecifica(k){ if(window.reabrirSemanaEspecifica)window.reabrirSemanaEspecifica(k); else alert('Cargando...'); }
 function renderComments(){ if(window._renderComments)window._renderComments(); }
@@ -679,37 +686,56 @@ const db=getFirestore(fApp);
 
 // ══════ CONFIG ══════
 const SEMANAS=[
-  {label:'Semana 1',sub:'Ventas sugestivas',dates:'2 Jun — 8 Jun 2026',mundial:false},
-  {label:'Semana 2',sub:'Mundial arranca',dates:'9 Jun — 15 Jun 2026',mundial:true},
-  {label:'Semana 3',sub:'Fase de grupos',dates:'16 Jun — 22 Jun 2026',mundial:true},
-  {label:'Semana 4',sub:'Fase de grupos',dates:'23 Jun — 29 Jun 2026',mundial:true},
-  {label:'Semana 5',sub:'Octavos de final',dates:'30 Jun — 6 Jul 2026',mundial:true},
-  {label:'Semana 6',sub:'Cuartos de final',dates:'7 Jul — 13 Jul 2026',mundial:true},
-  {label:'Semana 7',sub:'Semis y Gran Final',dates:'14 Jul — 20 Jul 2026',mundial:true},
+  {label:'Semana 1', sub:'Ventas sugestivas',       dates:'2 Jun — 7 Jun 2026',   mundial:false,mes:1},
+  {label:'Semana 2', sub:'Mundial Arranque',         dates:'9 Jun — 14 Jun 2026',  mundial:true, mes:1},
+  {label:'Semana 3', sub:'Mundial Fase grupos',      dates:'16 Jun — 21 Jun 2026', mundial:true, mes:1},
+  {label:'Semana 4', sub:'Mundial Fase grupos',      dates:'23 Jun — 28 Jun 2026', mundial:true, mes:1},
+  {label:'Semana 5', sub:'Dieciseisavos - Octavos',  dates:'30 Jun — 5 Jul 2026',  mundial:true, mes:2},
+  {label:'Semana 6', sub:'Cuartos - Semifinales',    dates:'7 Jul — 12 Jul 2026',  mundial:true, mes:2},
+  {label:'Semana 7', sub:'Gran Final',               dates:'14 Jul — 19 Jul 2026', mundial:true, mes:2},
+  {label:'Semana 8', sub:'Post Mundial',             dates:'21 Jul — 26 Jul 2026', mundial:false,mes:2},
+  {label:'Semana 9', sub:'Operacion normal',         dates:'28 Jul — 2 Ago 2026',  mundial:false,mes:3},
+  {label:'Semana 10',sub:'Operacion normal',         dates:'4 Ago — 9 Ago 2026',   mundial:false,mes:3},
+  {label:'Semana 11',sub:'Operacion normal',         dates:'11 Ago — 16 Ago 2026', mundial:false,mes:3},
+  {label:'Semana 12',sub:'Operacion normal',         dates:'18 Ago — 23 Ago 2026', mundial:false,mes:3},
+  {label:'Semana 13',sub:'Cierre evaluacion Miguel', dates:'25 Ago — 30 Ago 2026', mundial:false,mes:3},
+];
+window.SEMANAS=SEMANAS;
+const MESES_EVAL=[
+  {num:1,label:'Mes 1 - Junio 2026',   semanas:[1,2,3,4]},
+  {num:2,label:'Mes 2 - Julio 2026',   semanas:[5,6,7,8]},
+  {num:3,label:'Mes 3 - Agosto 2026',  semanas:[9,10,11,12]},
 ];
 window.SEMANAS=SEMANAS;
 
 const PARTIDOS={
   2:[
-    {match:'🇲🇽 México vs Sudáfrica',fecha:'Jue 11 Jun · 1:00 PM',tipo:'premium',proy_cubetas:47,proy_ind:50,proy_cart:20},
-    {match:'🇺🇸 EUA vs Paraguay',fecha:'Vie 12 Jun · 7:00 PM',tipo:'bajo',proy_il:30,proy_ind:20,proy_cart:6},
-    {match:'🇧🇷 Brasil vs Marruecos',fecha:'Sáb 13 Jun · 4:00 PM',tipo:'medio',proy_il:40,proy_ind:30,proy_cart:11},
-    {match:'🇦🇷 Argentina vs Argelia',fecha:'Dom 14 Jun · 7:00 PM',tipo:'medio',proy_il:38,proy_ind:30,proy_cart:11},
+    {match:'🇲🇽 México vs Sudáfrica',        fecha:'Jue 11 Jun · 1:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'🇺🇸 EUA vs Paraguay',             fecha:'Vie 12 Jun · 7:00 PM', tipo:'medio',  proy_il:52,   proy_ind:0, proy_cart:9},
+    {match:'🇧🇷 Brasil vs Marruecos',         fecha:'Sáb 13 Jun · 4:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'🇳🇱 Netherlands vs Japan',        fecha:'Dom 14 Jun · 2:00 PM', tipo:'medio',  proy_il:52,   proy_ind:0, proy_cart:9},
   ],
   3:[
-    {match:'🇪🇸 España vs Cabo Verde',fecha:'Lun 15 Jun · 2:00 PM',tipo:'bajo',proy_il:25,proy_ind:15,proy_cart:5},
-    {match:'🇫🇷 Francia vs Senegal',fecha:'Mar 16 Jun · 1:00 PM',tipo:'bajo',proy_il:25,proy_ind:15,proy_cart:5},
-    {match:'🇦🇷 Argentina vs Argelia',fecha:'Mar 16 Jun · 7:00 PM',tipo:'medio',proy_il:40,proy_ind:30,proy_cart:11},
-    {match:'🏴󠁧󠁢󠁳󠁣󠁴󠁿 Escocia vs Brasil',fecha:'Jue 18 Jun · 5:00 PM',tipo:'medio',proy_il:35,proy_ind:25,proy_cart:10},
-    {match:'🇲🇽 México vs Corea del Sur',fecha:'Jue 18 Jun · 7:00 PM',tipo:'premium',proy_cubetas:47,proy_ind:50,proy_cart:20},
-    {match:'🇪🇸 España vs Uruguay',fecha:'Vie 19 Jun · 6:00 PM',tipo:'medio',proy_il:35,proy_ind:25,proy_cart:10},
-    {match:'🇪🇸 España vs Arabia Saudita',fecha:'Dom 21 Jun · 7:00 PM',tipo:'medio',proy_il:35,proy_ind:25,proy_cart:10},
+    {match:'🇦🇷 Argentina vs Argelia',        fecha:'Mar 16 Jun · 7:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'Ghana + Uzbekistán (doble)',       fecha:'Mié 17 Jun · 5:00 PM', tipo:'medio',  proy_il:52,   proy_ind:0, proy_cart:9},
+    {match:'Uzbekistán vs Colombia',          fecha:'Mié 17 Jun · 8:00 PM', tipo:'medio',  proy_il:52,   proy_ind:0, proy_cart:9},
+    {match:'🇲🇽 México vs Corea del Sur',     fecha:'Jue 18 Jun · 7:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'🇧🇷 Brasil vs Haití',             fecha:'Vie 19 Jun · 6:30 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'Turquía vs Paraguay',             fecha:'Vie 19 Jun · 9:00 PM', tipo:'medio',  proy_il:52,   proy_ind:0, proy_cart:9},
+    {match:'🇩🇪 Alemania vs C. de Marfil',    fecha:'Sáb 20 Jun · 2:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'🇺🇾 Uruguay vs Cabo Verde',       fecha:'Dom 21 Jun · 4:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
   ],
   4:[
-    {match:'🇦🇷 Argentina vs Austria',fecha:'Lun 22 Jun · 7:00 PM',tipo:'medio',proy_il:40,proy_ind:30,proy_cart:11},
-    {match:'🇧🇷 Brasil vs Haití',fecha:'Mié 24 Jun · 6:00 PM',tipo:'medio',proy_il:35,proy_ind:25,proy_cart:10},
-    {match:'🇲🇽 México vs Rep. Checa',fecha:'Mié 24 Jun · 7:00 PM',tipo:'premium',proy_cubetas:47,proy_ind:50,proy_cart:20},
-    {match:'🇺🇾 Uruguay vs España',fecha:'Vie 26 Jun · 6:00 PM',tipo:'medio',proy_il:35,proy_ind:25,proy_cart:10},
+    {match:'Panamá vs Croacia',               fecha:'Mar 23 Jun · 5:00 PM', tipo:'bajo',   proy_il:40,   proy_ind:0, proy_cart:5},
+    {match:'Colombia vs RD Congo',            fecha:'Mar 23 Jun · 8:00 PM', tipo:'medio',  proy_il:52,   proy_ind:0, proy_cart:9},
+    {match:'🏴󠁧󠁢󠁳󠁣󠁴󠁿 Escocia vs 🇧🇷 Brasil', fecha:'Mié 24 Jun · 4:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'🇲🇽 México vs Chequia',           fecha:'Mié 24 Jun · 7:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'Túnez vs Netherlands',            fecha:'Jue 25 Jun · 5:00 PM', tipo:'bajo',   proy_il:40,   proy_ind:0, proy_cart:5},
+    {match:'Turquía vs EUA',                  fecha:'Jue 25 Jun · 8:00 PM', tipo:'medio',  proy_il:52,   proy_ind:0, proy_cart:9},
+    {match:'🇺🇾 Uruguay vs 🇪🇸 España',      fecha:'Vie 26 Jun · 6:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'Panamá vs Inglaterra',            fecha:'Sáb 27 Jun · 3:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'Colombia vs 🇵🇹 Portugal',        fecha:'Sáb 27 Jun · 5:30 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
+    {match:'Jordania vs 🇦🇷 Argentina',       fecha:'Sáb 27 Jun · 8:00 PM', tipo:'premium',proy_cubetas:36,proy_ind:27,proy_cart:16},
   ],
   5:[{match:'⚽ Octavos de Final (4 partidos)',fecha:'28 Jun - 3 Jul',tipo:'medio',proy_il:140,proy_ind:80,proy_cart:40}],
   6:[
@@ -757,7 +783,13 @@ const META_REV_ENC=11,META_REV_MES=6;
 const META_ENC_$=ENC_META_FIJO;
 const metaEncP=pid=>Math.round((ENC_META_FIJO/PALANCAS.length)/PRECIOS[pid]);
 const metaMesP=pid=>Math.round((META_POR_TURNO_BASE*6/PALANCAS.length)/PRECIOS[pid]); // 6 turnos reference
-const META_CUBI_ENC=8,META_CUBI_MES=13,META_IL_PART=14;
+// Metas mundiales por persona por partido (basadas en distribución real)
+// Salón: cada persona cubre ~11 asientos de 72 total (6 personas salón)
+// Barra: 5 asientos ÷ 2 baristas = ~2-3 por barista
+const META_CUBI_ENC=6,META_CUBI_MES=6,META_CUBI_BAR=2; // cubetas por partido premium
+const META_IND_SAL=20,META_IND_BAR=5;                   // individuales salón/barra
+const META_IL_SAL=8,META_IL_BAR=2;                      // personas ilimitada salón/barra
+const META_IL_PART=8; // legacy compat
 const P_CUBETA=300,P_IND=55,P_IL2H=200,P_ILMT=100;
 const COSTO_CART=325,CERV_CART=24,C_CUB=6,C_IL2H=4,C_ILMT=3;
 
@@ -1006,7 +1038,7 @@ function refreshAll(){
   const pid=activePanel.id.replace('panel-','');
   if(pid==='enc'){renderEncPalancas();renderEncEquipo();renderEncMundial();renderComments();}
   if(pid==='mes'){renderMesPalancas();renderMesMundial();renderComments();}
-  if(pid==='ger'){renderGerMundial();renderComments();}
+  if(pid==='ger'){renderGerMundial();renderComments();window.renderCierreMensual&&renderCierreMensual();}
   if(pid==='dg')renderDG();
   if(pid==='rank')renderRanking();
 }
@@ -1250,7 +1282,9 @@ function renderGerMundial(){
       ${allU.map(u=>{
         const d=((getMundialW().por_usuario||{})[u.id]||{})['p'+i]||{};
         const real=p.tipo==='premium'?(parseFloat(d.cubetas)||0):(parseFloat(d.personas)||0);
-        const meta=p.tipo==='premium'?(u.role==='enc'?META_CUBI_ENC:META_CUBI_MES):META_IL_PART;
+        const meta=p.tipo==='premium'
+              ?(u.role==='bar'?META_CUBI_BAR:(u.role==='enc'?META_CUBI_ENC:META_CUBI_MES))
+              :(u.role==='bar'?META_IL_BAR:META_IL_SAL);
         const pctU=meta>0?Math.min(100,Math.round((real/meta)*100)):0;
         return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px dashed var(--bg2);">
           <div style="width:22px;height:22px;border-radius:50%;background:${u.color}20;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:${u.color};">${u.nombre.charAt(0)}</div>
@@ -1383,7 +1417,9 @@ function renderEncMundial(){
     let filas='';
     allU.forEach(u=>{
       const d=((mdata.por_usuario||{})[u.id]||{})['p'+i]||{};
-      const meta=p.tipo==='premium'?(u.role==='enc'?META_CUBI_ENC:META_CUBI_MES):META_IL_PART;
+      const meta=p.tipo==='premium'
+              ?(u.role==='bar'?META_CUBI_BAR:(u.role==='enc'?META_CUBI_ENC:META_CUBI_MES))
+              :(u.role==='bar'?META_IL_BAR:META_IL_SAL);
       const realVal=p.tipo==='premium'?(d.cubetas||''):(d.personas||'');
       const pctU=meta>0?Math.min(100,Math.round(((parseFloat(realVal)||0)/meta)*100)):0;
       const inputLabel=p.tipo==='premium'?'Cubetas':'Personas';
@@ -1486,7 +1522,8 @@ function renderMesMundial(){
   let html=`<div class="sec-title"><span>🏆</span>Tu meta mundial</div>`;
   partidos.forEach((p,i)=>{
     const d=((mdata.por_usuario||{})[mid]||{})['p'+i]||{};
-    const meta=p.tipo==='premium'?META_CUBI_MES:META_IL_PART;
+    const metaRole=currentUser?.role==='bar';
+    const meta=p.tipo==='premium'?(metaRole?META_CUBI_BAR:META_CUBI_MES):(metaRole?META_IL_BAR:META_IL_SAL);
     const realMain=p.tipo==='premium'?(parseFloat(d.cubetas)||0):(parseFloat(d.personas)||0);
     const pct=meta>0?Math.min(100,Math.round((realMain/meta)*100)):0;
     const bc=p.tipo==='premium'?'badge-premium':p.tipo==='medio'?'badge-medio':'badge-bajo';
@@ -1640,6 +1677,150 @@ window._reabrirSemana=window.reabrirSemana=async function(){
   window.reabrirSemanaEspecifica('w'+week);
 };
 
+// ══════ CIERRE MENSUAL ══════
+function getMesActual(){
+  return MESES_EVAL.map(function(m){
+    const todasCerradas=m.semanas.every(function(s){return semanasStatus['w'+s]&&semanasStatus['w'+s].closed===true;});
+    const algunaCerrada=m.semanas.some(function(s){return semanasStatus['w'+s]&&semanasStatus['w'+s].closed===true;});
+    const semanasCerradas=m.semanas.filter(function(s){return semanasStatus['w'+s]&&semanasStatus['w'+s].closed===true;}).length;
+    return Object.assign({},m,{todasCerradas:todasCerradas,algunaCerrada:algunaCerrada,semanasCerradas:semanasCerradas,totalSemanas:m.semanas.length});
+  });
+}
+
+function getResumenMes(numMes){
+  const mes=MESES_EVAL.find(function(m){return m.num===numMes;});
+  if(!mes)return null;
+  let totalInc=0,totalMundial=0,totalCart=0,totalRev=0;
+  const porPersona={};
+  const team=[users.find(function(u){return u.role==='enc';})].concat(getTeamUsers()).filter(Boolean);
+  team.forEach(function(u){
+    porPersona[u.id]={nombre:u.nombre,rol:u.role,meta:getMetaUser(u.id),venta:0,piezas:{},reviews:0,pct:0};
+    PALANCAS.forEach(function(p){porPersona[u.id].piezas[p.id]=0;});
+  });
+  mes.semanas.forEach(function(semNum){
+    const wd=localData['w'+semNum];if(!wd)return;
+    const encP=wd.enc_p||{};
+    const encT=totPesos(encP);
+    totalInc+=encT;
+    const encUser=users.find(function(u){return u.role==='enc';});
+    if(encUser&&porPersona[encUser.id]){
+      porPersona[encUser.id].venta+=encT;
+      PALANCAS.forEach(function(p){porPersona[encUser.id].piezas[p.id]+=(encP[p.id]||0);});
+      porPersona[encUser.id].reviews+=(wd.enc_reviews||0);
+    }
+    totalRev+=(wd.enc_reviews||0);
+    const mes_data=wd.mes||{};
+    getTeamUsers().forEach(function(u){
+      const ud=mes_data[u.id]||{};
+      const ut=totPesos(ud);
+      totalInc+=ut;
+      if(porPersona[u.id]){
+        porPersona[u.id].venta+=ut;
+        PALANCAS.forEach(function(p){porPersona[u.id].piezas[p.id]+=(ud[p.id]||0);});
+        porPersona[u.id].reviews+=(ud.reviews||0);
+      }
+      totalRev+=(ud.reviews||0);
+    });
+    const mdata=(wd.mundial&&wd.mundial.por_usuario)||{};
+    (PARTIDOS[semNum]||[]).forEach(function(p,i){
+      const allU=getTeamUsers().concat([users.find(function(u){return u.role==='enc';})]).filter(Boolean);
+      allU.forEach(function(u){
+        const d=((mdata[u.id])||{})['p'+i]||{};
+        const r=calcPartidoData(p,d);
+        totalMundial+=r.ingreso;totalCart+=r.cartones;
+      });
+    });
+  });
+  Object.values(porPersona).forEach(function(p){
+    p.metaMes=p.meta*mes.semanas.length;
+    p.pct=p.metaMes>0?Math.round((p.venta/p.metaMes)*100):0;
+  });
+  const metaTotalMes=(ENC_META_FIJO+getTeamUsers().reduce(function(s,u){return s+getMetaUser(u.id);},0))*mes.semanas.length;
+  const metaRevTotal=(META_REV_ENC+getMesUsers().length*META_REV_MES)*mes.semanas.length;
+  return {mes:mes,numMes:numMes,totalInc:totalInc,totalMundial:totalMundial,totalCart:totalCart,totalRev:totalRev,porPersona:porPersona,metaTotalMes:metaTotalMes,metaRevTotal:metaRevTotal,pctInc:metaTotalMes>0?Math.round((totalInc/metaTotalMes)*100):0,pctRev:metaRevTotal>0?Math.round((totalRev/metaRevTotal)*100):0};
+}
+
+function buildResumenHTML(numMes){
+  const r=getResumenMes(numMes);if(!r)return '<p>Sin datos</p>';
+  const mes=MESES_EVAL.find(function(m){return m.num===numMes;});
+  const semLabel=mes.semanas.map(function(s){return 'Sem '+s;}).join(', ');
+  const green='#1E7A3E',amber='#C07010',red='#B03020';
+  const pctColor=r.pctInc>=100?green:r.pctInc>=70?amber:red;
+  const personaRows=Object.values(r.porPersona).sort(function(a,b){return b.pct-a.pct;}).map(function(p,i){
+    const emoji=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    const pc=p.pct>=100?green:p.pct>=70?amber:red;
+    const rolLbl=p.rol==='bar'?'Barra':p.rol==='enc'?'Enc':'Mes';
+    const palCells=PALANCAS.map(function(pal){return '<td style="text-align:center;padding:3px 5px;font-size:.7rem;">'+(p.piezas[pal.id]||0)+'</td>';}).join('');
+    return '<tr style="background:'+(i%2===0?'#f9f6f0':'#fff')+';">'
+      +'<td style="padding:5px 8px;font-weight:600;font-size:.75rem;">'+emoji+' '+p.nombre+'</td>'
+      +'<td style="text-align:center;font-size:.68rem;color:#7a6e62;">'+rolLbl+'</td>'
+      +palCells
+      +'<td style="text-align:center;font-weight:700;font-size:.75rem;">$'+p.venta.toLocaleString()+'</td>'
+      +'<td style="text-align:center;font-size:.72rem;">$'+p.metaMes.toLocaleString()+'</td>'
+      +'<td style="text-align:center;font-weight:800;color:'+pc+';font-size:.8rem;">'+p.pct+'%</td>'
+      +'<td style="text-align:center;font-size:.72rem;">'+p.reviews+'</td>'
+      +'</tr>';
+  }).join('');
+  const palHeaders=PALANCAS.map(function(p){return '<th style="padding:5px;text-align:center;">'+p.emoji+'</th>';}).join('');
+  return '<div id="resumen-mes-'+numMes+'" style="font-family:sans-serif;padding:16px;">'
+    +'<div style="text-align:center;margin-bottom:12px;">'
+    +'<div style="font-weight:900;font-size:1.3rem;color:#B8860B;">GRUPO NATIVO</div>'
+    +'<div style="font-size:.8rem;color:#7a6e62;">Casa Peninsular</div>'
+    +'<div style="font-weight:700;font-size:1rem;margin-top:6px;">RESUMEN MENSUAL — '+r.mes.label.toUpperCase()+'</div>'
+    +'<div style="font-size:.7rem;color:#7a6e62;">Semanas incluidas: '+semLabel+'</div>'
+    +'</div>'
+    +'<hr style="border:1px solid #B8860B;margin:10px 0;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px;">'
+    +'<div style="background:#fdf5dc;border:1px solid #B8860B;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:.6rem;text-transform:uppercase;color:#7a6e62;">Incremento real</div><div style="font-size:1.3rem;font-weight:900;color:#B8860B;">$'+r.totalInc.toLocaleString()+'</div><div style="font-size:.68rem;color:'+pctColor+';font-weight:700;">'+r.pctInc+'% de meta</div></div>'
+    +'<div style="background:#e6f4ec;border:1px solid #1E7A3E;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:.6rem;text-transform:uppercase;color:#7a6e62;">Meta mensual</div><div style="font-size:1.3rem;font-weight:900;color:#1E7A3E;">$'+r.metaTotalMes.toLocaleString()+'</div><div style="font-size:.68rem;color:#7a6e62;">'+mes.semanas.length+' semanas</div></div>'
+    +'<div style="background:#fef6e4;border:1px solid #E8A020;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:.6rem;text-transform:uppercase;color:#7a6e62;">Mundial cerveza</div><div style="font-size:1.3rem;font-weight:900;color:#E8A020;">$'+r.totalMundial.toLocaleString()+'</div><div style="font-size:.68rem;color:#7a6e62;">'+r.totalCart+' cartones</div></div>'
+    +'<div style="background:#e8f1f8;border:1px solid #1A5C8A;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:.6rem;text-transform:uppercase;color:#7a6e62;">Resenas Google</div><div style="font-size:1.3rem;font-weight:900;color:#1A5C8A;">'+r.totalRev+'</div><div style="font-size:.68rem;color:'+(r.pctRev>=100?green:amber)+';font-weight:700;">'+r.pctRev+'% / meta '+r.metaRevTotal+'</div></div>'
+    +'</div>'
+    +'<div style="font-weight:700;font-size:.82rem;margin-bottom:6px;">Desempeno individual</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:.72rem;">'
+    +'<thead><tr style="background:#1C1712;color:#fff;">'
+    +'<th style="padding:5px 8px;text-align:left;">Persona</th>'
+    +'<th style="padding:5px;text-align:center;">Rol</th>'
+    +palHeaders
+    +'<th style="padding:5px;text-align:center;">Venta $</th>'
+    +'<th style="padding:5px;text-align:center;">Meta $</th>'
+    +'<th style="padding:5px;text-align:center;">%</th>'
+    +'<th style="padding:5px;text-align:center;">Rev</th>'
+    +'</tr></thead>'
+    +'<tbody>'+personaRows+'</tbody></table>'
+    +'<hr style="border:1px solid #EDE7DA;margin:12px 0;">'
+    +'<div style="font-size:.6rem;color:#b0a898;text-align:center;">Generado el '+new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+' · Grupo Nativo · Casa Peninsular</div>'
+    +'</div>';
+}
+
+window.verResumenMes=async function(numMes){
+  window._currentResMes=numMes;
+  const modal=document.getElementById('modal-resumen');
+  const body=document.getElementById('modal-resumen-body');
+  if(!modal||!body)return;
+  body.innerHTML=buildResumenHTML(numMes);
+  modal.style.display='flex';
+};
+
+window.cerrarModalResumen=function(){
+  const modal=document.getElementById('modal-resumen');
+  if(modal)modal.style.display='none';
+};
+
+window.descargarResumenPDF=function(numMes){
+  const contenido=document.getElementById('resumen-mes-'+numMes);
+  if(!contenido){showToast('Genera el resumen primero');return;}
+  const ven=window.open('','_blank');
+  ven.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:20px;font-family:sans-serif;}table{width:100%;border-collapse:collapse;}@media print{.no-print{display:none;}}</style><title>Resumen Mes '+numMes+' - Grupo Nativo</title></head><body>'+contenido.outerHTML+'<script>window.onload=function(){window.print()};<\/script></body></html>');
+  ven.document.close();
+};
+
+
+window.renderCierreMensual=renderCierreMensual;
+
+
+window.renderDGResumenes=renderDGResumenes;
+
 function renderWeekStatus(){
   // Show/hide save fab based on week status and role
   const fab=document.getElementById('save-fab');
@@ -1680,6 +1861,52 @@ function renderWeekStatus(){
 window._renderWeekStatus = window.renderWeekStatus = renderWeekStatus;
 
 // ══════ UTILS ══════
+// ══════ RENDER CIERRE MENSUAL ══════
+function renderCierreMensual(){
+  const div=document.getElementById('ger-cierre-mensual');if(!div)return;
+  const meses=getMesActual();
+  let html='';
+  meses.forEach(m=>{
+    const listo=m.todasCerradas;
+    const color=listo?'var(--green)':m.algunaCerrada?'var(--amber)':'var(--ink-dim)';
+    const bg=listo?'var(--green-lt)':m.algunaCerrada?'var(--amber-lt)':'var(--bg)';
+    const btn=listo
+      ?`<button onclick="window._currentResMes=${m.num};verResumenMes(${m.num})" style="background:var(--gold);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;cursor:pointer;">📋 Ver Resumen Mes ${m.num}</button>`
+      :`<div style="font-size:.65rem;color:var(--ink-faint);">Cierra las ${m.totalSemanas} semanas para generar resumen<br>${m.semanasCerradas}/${m.totalSemanas} semanas cerradas</div>`;
+    html+=`<div style="background:${bg};border:1px solid ${color};border-radius:12px;padding:12px 14px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="font-size:1.2rem;">${listo?'✅':m.algunaCerrada?'🔄':'⏳'}</div>
+        <div style="flex:1;">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:.85rem;color:${color};">${m.label}</div>
+          <div style="font-size:.62rem;color:var(--ink-dim);">Semanas ${m.semanas.join(', ')} · ${m.semanasCerradas}/${m.totalSemanas} cerradas</div>
+        </div>
+      </div>
+      ${btn}
+    </div>`;
+  });
+  div.innerHTML=html;
+}
+window.renderCierreMensual=renderCierreMensual;
+
+function renderDGResumenes(){
+  const div=document.getElementById('dg-resumenes-mensuales');if(!div)return;
+  const meses=getMesActual();
+  let html='';
+  meses.forEach(m=>{
+    if(!m.todasCerradas)return;
+    html+=`<div style="background:var(--green-lt);border:1px solid var(--green);border-radius:10px;padding:10px 13px;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+      <div style="flex:1;">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;color:var(--green);">✅ ${m.label}</div>
+        <div style="font-size:.62rem;color:var(--ink-dim);">Semanas ${m.semanas.join(', ')} · Listo para descarga</div>
+      </div>
+      <button onclick="window._currentResMes=${m.num};verResumenMes(${m.num})" style="background:var(--gold);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-family:'Syne',sans-serif;font-weight:700;font-size:.72rem;cursor:pointer;">📋 Ver</button>
+    </div>`;
+  });
+  if(!html) html='<div style="font-size:.72rem;color:var(--ink-faint);padding:8px;">Los resúmenes aparecen aquí cuando el gerente cierre cada mes completo.</div>';
+  div.innerHTML=html;
+}
+window.renderDGResumenes=renderDGResumenes;
+
 function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
 function setPill(el,txt,cls){if(!el)return;el.textContent=txt;el.className='kc-pill '+cls;}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
@@ -1732,5 +1959,19 @@ async function init(){
 }
 init();
 </script>
+
+<!-- MODAL RESUMEN MENSUAL -->
+<div id="modal-resumen" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px;">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:940px;position:relative;max-height:90vh;overflow-y:auto;">
+    <div style="position:sticky;top:0;background:#1C1712;padding:12px 16px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between;z-index:10;">
+      <div style="font-family:'Syne',sans-serif;font-weight:800;color:#f7f3ed;font-size:.9rem;">📋 Resumen Mensual</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="descargarResumenPDF(window._currentResMes||1)" style="background:#B8860B;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;cursor:pointer;">⬇️ Descargar PDF</button>
+        <button onclick="cerrarModalResumen()" style="background:#B03020;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;cursor:pointer;">✕ Cerrar</button>
+      </div>
+    </div>
+    <div id="modal-resumen-body" style="padding:4px;"></div>
+  </div>
+</div>
 </body>
 </html>
