@@ -417,7 +417,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Epilogue',sans-serif;min
       <div class="admin-title">Nombres y PINs del equipo</div>
       <div id="admin-users-list"></div>
       <button class="save-admin-btn" onclick="saveAdminUsers()">💾 GUARDAR CAMBIOS</button>
-      <button onclick="resetDatos()" style="width:100%;margin-top:8px;padding:10px;background:var(--red-lt);color:var(--red);border:1px solid var(--red);border-radius:8px;font-family:'Syne',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;">🗑️ BORRAR DATOS DE PRUEBA</button>
+      <button onclick="resetDatos()" style="width:100%;margin-top:8px;padding:10px;background:var(--red-lt);color:var(--red);border:1px solid var(--red);border-radius:8px;font-family:'Syne',sans-serif;font-weight:700;font-size:.78rem;cursor:pointer;">🗑️ Solicitar borrado (requiere aprobación DG)</button>
     </div>
   </div>
 
@@ -696,6 +696,7 @@ function updateCommentStatus(key,id,status){ if(window._updateCommentStatus)wind
 function saveAdminUsers(){ if(window._saveAdminUsers)window._saveAdminUsers(); }
 function cerrarSemana(){ if(window._cerrarSemana)window._cerrarSemana(); else alert('Cargando...'); }
 function resetDatos(){ if(window.resetDatos)window.resetDatos(); else alert('Cargando...'); }
+function aprobarResetDatos(){ if(window.aprobarResetDatos)window.aprobarResetDatos(); else alert('Cargando...'); }
 function toggleEditMode(r){ if(window.toggleEditMode)window.toggleEditMode(r); }
 function closeCelebration(){ if(window.closeCelebration)window.closeCelebration(); }
 function closeEditMode(r){ if(window.closeEditMode)window.closeEditMode(r); }
@@ -880,6 +881,16 @@ function subscribeWeek(w){
 }
 
 const getW=()=>localData['w'+week]||{};
+window.getW=getW;
+window.getLocalData=()=>localData;
+window.setMundialUserData=(uid,pidx,key,val,indVal)=>{
+  if(!localData['w'+week])localData['w'+week]={};
+  const wData=localData['w'+week];
+  if(!wData.mundial)wData.mundial={por_usuario:{}};
+  if(!wData.mundial.por_usuario)wData.mundial.por_usuario={};
+  if(!wData.mundial.por_usuario[uid])wData.mundial.por_usuario[uid]={};
+  wData.mundial.por_usuario[uid]['p'+pidx]={[key]:val,ind:indVal||0};
+};
 const getMD=mid=>(getW().mes||{})[mid]||{};
 const getEncP=()=>getW().enc_p||{};
 const getMesUsers=()=>users.filter(u=>u.role==='mes');
@@ -1632,14 +1643,27 @@ function renderMesMundial(){
 window.renderMesMundial=renderMesMundial;
 
 window.calcMesMundialLive=()=>{
-  if(!currentUser||currentUser.role!=='mes')return;
+  if(!currentUser||(currentUser.role!=='mes'&&currentUser.role!=='bar'))return;
   const mid=currentUser.id;const partidos=PARTIDOS[week]||[];
+  // Update local display
   partidos.forEach((p,i)=>{
-    const mv=parseFloat(document.getElementById(`mes-m-${mid}-p${i}-main`)?.value)||0;
-    const iv=parseFloat(document.getElementById(`mes-m-${mid}-p${i}-ind`)?.value)||0;
+    const mv=parseFloat(document.getElementById('mes-m-'+mid+'-p'+i+'-main')?.value)||0;
+    const iv=parseFloat(document.getElementById('mes-m-'+mid+'-p'+i+'-ind')?.value)||0;
     const pr=p.tipo==='premium'?P_CUBETA:(p.tipo==='medio'?P_IL2H:P_ILMT);
-    setText(`mes-m-total-p${i}`,'$'+Math.round(mv*pr+iv*P_IND).toLocaleString());
+    const total=Math.round(mv*pr+iv*P_IND);
+    setText('mes-m-total-p'+i,'$'+total.toLocaleString());
+    // Push to module localData via exposed function
+    if(window.setMundialUserData){
+      const key=p.tipo==='premium'?'cubetas':'personas';
+      window.setMundialUserData(mid,i,key,mv,iv);
+    }
   });
+  // Refresh upper panels live after small delay
+  setTimeout(function(){
+    if(window.renderEncEquipo)window.renderEncEquipo();
+    if(window.renderGerMundial)window.renderGerMundial();
+    if(window.renderDG)window.renderDG();
+  },100);
 };
 
 // ══════ RANKING ══════
@@ -1963,6 +1987,22 @@ function renderCierreMensual(){
 }
 window.renderCierreMensual=renderCierreMensual;
 
+function renderDGNotificaciones(){
+  const div=document.getElementById('dg-notifications');if(!div)return;
+  // Check for pending reset request
+  getDoc(doc(db,'config','reset_request')).then(function(snap){
+    if(!snap.exists()){div.innerHTML='';return;}
+    const data=snap.data();
+    if(data.estado!=='pendiente'){div.innerHTML='';return;}
+    div.innerHTML='<div style="background:#b03020;color:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;">'
+      +'<div style="font-family:Syne,sans-serif;font-weight:700;font-size:.88rem;margin-bottom:4px;">🗑️ Solicitud de borrado pendiente</div>'
+      +'<div style="font-size:.75rem;opacity:.85;margin-bottom:10px;">'+data.solicitadoPor+' solicita borrar todos los datos de prueba.</div>'
+      +'<button onclick="window.aprobarResetDatos()" style="background:#fff;color:#b03020;border:none;border-radius:8px;padding:8px 16px;font-family:Syne,sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;">✅ Aprobar y borrar datos</button>'
+      +'</div>';
+  }).catch(function(){div.innerHTML='';});
+}
+window.renderDGNotificaciones=renderDGNotificaciones;
+
 function renderDGResumenes(){
   const div=document.getElementById('dg-resumenes-mensuales');if(!div)return;
   const meses=getMesActual();
@@ -2157,24 +2197,40 @@ window._renderWeekStatus = renderWeekStatus;
 
 window.resetDatos=async function(){
   if(currentUser?.role!=='ger'){showToast('Solo el gerente puede resetear');return;}
-  const pinGer=prompt('Paso 1/2 — PIN del Gerente:');
-  if(!pinGer||pinGer!==currentUser.pin){showToast('PIN de gerente incorrecto');return;}
-  showToast('Solicita al Director General que autorice con su PIN');
-  const pinDG=prompt('Paso 2/2 — PIN del Director General (autorizacion requerida):');
-  const dgUser=users.find(function(u){return u.id==='dg';});
-  if(!pinDG||!dgUser||pinDG!==dgUser.pin){showToast('PIN de DG incorrecto — operacion cancelada');return;}
-  if(!confirm('Autorizacion recibida. Confirmar borrado de datos de semanas? Usuarios y PINs se mantienen.'))return;
+  const pinGer=prompt('Ingresa tu PIN de gerente para enviar solicitud de borrado:');
+  if(!pinGer||pinGer!==currentUser.pin){showToast('PIN incorrecto');return;}
+  // Save reset request to Firebase — DG must approve
+  try{
+    await setDoc(doc(db,'config','reset_request'),{
+      solicitadoPor: currentUser.nombre,
+      solicitadoEn: new Date().toISOString(),
+      estado: 'pendiente'
+    });
+    showToast('Solicitud enviada. El Director General debe aprobarla desde su panel.');
+    // Refresh DG notifications if visible
+    if(window.renderDGNotificaciones)window.renderDGNotificaciones();
+  }catch(e){syncBar('Error','error');console.error(e);}
+};
+
+// DG/Contraloría approves the reset
+window.aprobarResetDatos=async function(){
+  if(currentUser?.role!=='dg'){showToast('Solo Director General o Contraloría puede aprobar');return;}
+  const pinDG=prompt('Ingresa tu PIN para autorizar el borrado de datos:');
+  if(!pinDG||pinDG!==currentUser.pin){showToast('PIN incorrecto — operación cancelada');return;}
+  if(!confirm('¿Confirmas el borrado de todos los datos de semanas? Usuarios y PINs se mantienen.'))return;
   try{
     syncBar('Limpiando datos...','syncing');
     const {deleteDoc:dd}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-    for(let i=1;i<=7;i++){try{await dd(doc(db,'semanas','semana'+i));}catch(e){}}
+    for(let i=1;i<=13;i++){try{await dd(doc(db,'semanas','semana'+i));}catch(e){}}
     await setDoc(doc(db,'config','semanas_status'),{},{merge:false});
+    await setDoc(doc(db,'config','reset_request'),{estado:'completado',aprobadoPor:currentUser.nombre,aprobadoEn:new Date().toISOString()});
     await setDoc(doc(db,'comentarios','activos'),{},{merge:false});
     await setDoc(doc(db,'comentarios','archivados'),{list:[]},{merge:false});
     localData={};semanasStatus={};allComments={};archivedComments=[];
     syncBar('Datos limpiados','ok');
-    showToast('Datos de prueba eliminados. Sistema listo.');
-    renderGerPalancas();
+    showToast('✅ Datos borrados. Sistema listo para uso real.');
+    if(window.renderDGNotificaciones)window.renderDGNotificaciones();
+    if(window.renderDG)window.renderDG();
   }catch(e){syncBar('Error','error');console.error(e);}
 };
 async function init(){
