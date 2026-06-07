@@ -958,7 +958,7 @@ function getMundialTotales(){
   const partidos=PARTIDOS[week]||[];const mdata=getMundialW();
   let tI=0,tC=0,tCart=0,tCosto=0;
   partidos.forEach((p,i)=>{
-    [...getMesUsers(),users.find(u=>u.role==='enc')].filter(Boolean).forEach(u=>{
+    [...getTeamUsers(),users.find(u=>u.role==='enc')].filter(Boolean).forEach(u=>{
       const d=((mdata.por_usuario||{})[u.id]||{})['p'+i]||{};
       const r=calcPartidoData(p,d);tI+=r.ingreso;tC+=r.cervezas;tCart+=r.cartones;tCosto+=r.costo;
     });
@@ -1210,7 +1210,7 @@ function fillInputs(){
 // ══════ DG ══════
 function renderDG(){
   const encT=totPesos(readEncP());
-  let mesT=0;getMesUsers().forEach(m=>mesT+=totPesos(readMesP(m.id)));
+  let mesT=0;getTeamUsers().forEach(m=>mesT+=totPesos(readMesP(m.id)));
   const vNormal=BASE+encT+mesT,inc=encT+mesT;
   const mundial=getMundialTotales();
   const grand=vNormal+mundial.tI;
@@ -1234,7 +1234,7 @@ function renderDG(){
   const barM=document.getElementById('dg-bar-mundial');if(barM)barM.style.width=(proy>0?Math.min(100,Math.round((mundial.tI/proy)*100)):0)+'%';
   setText('dg-pct-mundial',(proy>0?Math.round((mundial.tI/proy)*100):0)+'%');
   setText('dg-mundial-sub',(proy>0?Math.round((mundial.tI/proy)*100):0)+'% vs proyección');
-  const encRev=getW().enc_reviews||0;let totalRev=encRev;getMesUsers().forEach(m=>totalRev+=(getMD(m.id).reviews||0));
+  const encRev=getW().enc_reviews||0;let totalRev=encRev;getTeamUsers().forEach(m=>totalRev+=(getMD(m.id).reviews||0));
   setText('dg-resenas',totalRev+'/30');setText('dg-cartones',mundial.tCart||0);setText('dg-costo-cerv','costo $'+(mundial.tCosto||0).toLocaleString());
   const encUser=users.find(u=>u.role==='enc');
   const items=[
@@ -1300,7 +1300,7 @@ function renderGerPalancas(){
   const div=document.getElementById('ger-palancas');if(!div)return;
   let rows='',totalInc=0;
   PALANCAS.forEach(p=>{
-    let piezas=(getEncP()[p.id]||0);getMesUsers().forEach(m=>piezas+=(getMD(m.id)[p.id]||0));
+    let piezas=(getEncP()[p.id]||0);getTeamUsers().forEach(m=>piezas+=(getMD(m.id)[p.id]||0));
     const pesos=p2p(p.id,piezas);totalInc+=pesos;
     const metaPal=Math.round(INC_OBJ/PALANCAS.length);
     const pct=metaPal>0?Math.min(100,Math.round((pesos/metaPal)*100)):0;
@@ -1363,12 +1363,12 @@ function renderGerRevDetalle(){
   const encRev=getW().enc_reviews||0;let totalRev=encRev;
   const enc=users.find(u=>u.role==='enc');
   let rows=`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:.68rem;border-bottom:1px solid var(--bg2);"><span>${enc?enc.nombre:'Encargado'}</span><span style="font-weight:700;">${encRev}/11</span></div>`;
-  getMesUsers().forEach(m=>{const rev=getMD(m.id).reviews||0;totalRev+=rev;rows+=`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:.68rem;border-bottom:1px solid var(--bg2);"><span>${m.nombre}</span><span style="font-weight:700;">${rev}/6</span></div>`;});
+  getTeamUsers().forEach(m=>{const rev=getMD(m.id).reviews||0;totalRev+=rev;rows+=`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:.68rem;border-bottom:1px solid var(--bg2);"><span>${m.nombre}</span><span style="font-weight:700;">${rev}/6</span></div>`;});
   div.innerHTML=rows;
   const pct=Math.round((totalRev/30)*100);setText('ger-rev-total',totalRev);setText('ger-rev-pct',pct+'%');
   const pill=document.getElementById('ger-rev-pill');
   if(totalRev>=30)setPill(pill,'✓ '+totalRev+'/30','p-ok');else if(totalRev>0)setPill(pill,totalRev+'/30','p-warn');else setPill(pill,'0/30','p-neu');
-  let acum=totalRev;Object.keys(localData).forEach(k=>{if(k!=='w'+week){const wd=localData[k];acum+=(wd.enc_reviews||0);getMesUsers().forEach(m=>acum+=((wd.mes?.[m.id]?.reviews)||0));}});
+  let acum=totalRev;Object.keys(localData).forEach(k=>{if(k!=='w'+week){const wd=localData[k];acum+=(wd.enc_reviews||0);getTeamUsers().forEach(m=>acum+=((wd.mes?.[m.id]?.reviews)||0));}});
   setText('ger-rev-acum',acum);
 }
 
@@ -1390,7 +1390,7 @@ function renderGerMundial(){
       </div>
     </div>`;
   partidos.forEach((p,i)=>{
-    const allU=[...getMesUsers(),users.find(u=>u.role==='enc')].filter(Boolean);
+    const allU=[...getTeamUsers(),users.find(u=>u.role==='enc')].filter(Boolean);
     let tI=0,tCart=0;
     allU.forEach(u=>{const d=((getMundialW().por_usuario||{})[u.id]||{})['p'+i]||{};const r=calcPartidoData(p,d);tI+=r.ingreso;tCart+=r.cartones;});
     const proy=p.tipo==='premium'?(p.proy_cubetas||0)*P_CUBETA+(p.proy_ind||0)*P_IND:((p.proy_il||0)*(p.tipo==='medio'?P_IL2H:P_ILMT)+(p.proy_ind||0)*P_IND);
@@ -1480,7 +1480,7 @@ window.calcEnc=()=>{
   else{setPill(pill,'Sin datos','p-neu');tag.textContent='—';}
   // Check if 100% achieved
   if(total >= META_ENC_$ && currentUser) checkCelebration('enc');
-  let mesT=0;getMesUsers().forEach(m=>mesT+=totPesos(readMesP(m.id)));
+  let mesT=0;getTeamUsers().forEach(m=>mesT+=totPesos(readMesP(m.id)));
   const totalRest=BASE+total+mesT;const incRest=totalRest-BASE;
   setText('enc-total-rest','$'+Math.round(totalRest).toLocaleString());
   setText('enc-aporte-lbl','$'+Math.round(total).toLocaleString());
@@ -1923,7 +1923,7 @@ function getResumenMes(numMes){
     p.pct=p.metaMes>0?Math.round((p.venta/p.metaMes)*100):0;
   });
   const metaTotalMes=(ENC_META_FIJO+getTeamUsers().reduce(function(s,u){return s+getMetaUser(u.id);},0))*mes.semanas.length;
-  const metaRevTotal=(META_REV_ENC+getMesUsers().length*META_REV_MES)*mes.semanas.length;
+  const metaRevTotal=(META_REV_ENC+getTeamUsers().length*META_REV_MES)*mes.semanas.length;
   return {mes:mes,numMes:numMes,totalInc:totalInc,totalMundial:totalMundial,totalCart:totalCart,totalRev:totalRev,porPersona:porPersona,metaTotalMes:metaTotalMes,metaRevTotal:metaRevTotal,pctInc:metaTotalMes>0?Math.round((totalInc/metaTotalMes)*100):0,pctRev:metaRevTotal>0?Math.round((totalRev/metaRevTotal)*100):0};
 }
 
