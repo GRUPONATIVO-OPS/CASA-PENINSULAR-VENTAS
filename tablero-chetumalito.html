@@ -861,6 +861,7 @@ function getMetaPiezasUser(uid,pid){
 }
 
 const META_REV_ENC=8,META_REV_MES=5;
+const META_REV_BAR=6;
 // Legacy compat
 const META_ENC_$=ENC_META_FIJO;
 const metaEncP=pid=>Math.round((ENC_META_FIJO/PALANCAS.length)/PRECIOS[pid]);
@@ -1148,6 +1149,7 @@ function refreshAll(){
     window.renderEncEquipo&&renderEncEquipo();
     window.renderEncMundial&&renderEncMundial();
     renderComments();
+    setTimeout(function(){if(window.calcEnc)calcEnc();},80);
   }
   if(pid==='mes'){
     window.renderMesPalancas&&renderMesPalancas();
@@ -1156,6 +1158,7 @@ function refreshAll(){
     setTimeout(function(){if(window.calcMes)calcMes();},100);
   }
   if(pid==='ger'){
+    window.renderGerPalancas&&renderGerPalancas();
     window.renderGerMundial&&renderGerMundial();
     renderComments();
     window.renderCierreMensual&&renderCierreMensual();
@@ -1363,7 +1366,8 @@ function renderGerRevDetalle(){
   const encRev=getW().enc_reviews||0;let totalRev=encRev;
   const enc=users.find(u=>u.role==='enc');
   let rows=`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:.68rem;border-bottom:1px solid var(--bg2);"><span>${enc?enc.nombre:'Encargado'}</span><span style="font-weight:700;">${encRev}/11</span></div>`;
-  getTeamUsers().forEach(m=>{const rev=getMD(m.id).reviews||0;totalRev+=rev;rows+=`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:.68rem;border-bottom:1px solid var(--bg2);"><span>${m.nombre}</span><span style="font-weight:700;">${rev}/6</span></div>`;});
+  getTeamUsers().forEach(m=>{const rev=getMD(m.id).reviews||0;totalRev+=rev;const metaRev=m.role==='bar'?META_REV_BAR:META_REV_MES;
+    rows+=`<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:.68rem;border-bottom:1px solid var(--bg2);"><span>${m.nombre}</span><span style="font-weight:700;">${rev}/${metaRev}</span></div>`;});
   div.innerHTML=rows;
   const pct=Math.round((totalRev/30)*100);setText('ger-rev-total',totalRev);setText('ger-rev-pct',pct+'%');
   const pill=document.getElementById('ger-rev-pill');
