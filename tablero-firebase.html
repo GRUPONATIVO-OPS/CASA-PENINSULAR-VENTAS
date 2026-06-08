@@ -2413,13 +2413,17 @@ async function init(){
     await window.loadWeekFn(week);
     if(window.renderWeekStatus)renderWeekStatus();
     if(window.populateEncTarget)populateEncTarget();
-    // After data loads, refresh KPIs for mes/bar
-    if(currentUser?.role==='mes'||currentUser?.role==='bar'){
-      setTimeout(function(){
+    // Force full re-render after data is loaded - fixes blank panel on login
+    setTimeout(function(){
+      if(window.refreshAll)window.refreshAll();
+    },150);
+    setTimeout(function(){
+      if(window.refreshAll)window.refreshAll();
+      if(currentUser?.role==='mes'||currentUser?.role==='bar'){
         if(window.calcMes)calcMes();
         if(window.calcMesReviews)calcMesReviews();
-      },400);
-    }
+      }
+    },500);
   };
   if(window.loginPending){window.loginPending=false;await window.appReady();}
 }
