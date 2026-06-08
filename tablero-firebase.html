@@ -707,7 +707,14 @@ function showTab(id){
   if(id==='rank')window.renderRanking&&renderRanking();
   if(id==='enc'){window.renderEncPalancas&&renderEncPalancas();window.renderEncEquipo&&renderEncEquipo();window.renderEncMundial&&renderEncMundial();renderComments();}
   if(id==='ger'){window.renderGerPalancas&&renderGerPalancas();renderAdminUsers();window.renderGerMundial&&renderGerMundial();renderComments();}
-  if(id==='mes'){window.renderMesPalancas&&renderMesPalancas();window.renderMesMundial&&renderMesMundial();renderComments();}
+  if(id==='mes'){
+    window.renderMesPalancas&&renderMesPalancas();
+    window.renderMesMundial&&renderMesMundial();
+    renderComments();
+    // Retry mundial render after module loads (in case it wasn't ready)
+    setTimeout(function(){if(window.renderMesMundial)window.renderMesMundial();},300);
+    setTimeout(function(){if(window.renderMesMundial)window.renderMesMundial();},800);
+  }
   if(id==='dg'){window.renderDG&&renderDG();renderComments();window.renderDGResumenes&&renderDGResumenes();}
   if(id==='acuerdos')renderAcuerdos();
 }
@@ -2424,8 +2431,14 @@ async function init(){
       if(currentUser?.role==='mes'||currentUser?.role==='bar'){
         if(window.calcMes)calcMes();
         if(window.calcMesReviews)calcMesReviews();
+        if(window.renderMesMundial)window.renderMesMundial();
       }
     },500);
+    setTimeout(function(){
+      if(currentUser?.role==='mes'||currentUser?.role==='bar'){
+        if(window.renderMesMundial)window.renderMesMundial();
+      }
+    },1000);
   };
   if(window.loginPending){window.loginPending=false;await window.appReady();}
 }
