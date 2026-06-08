@@ -720,8 +720,8 @@ function showTab(id){
 }
 
 // Week nav stubs
-var week=1;
-function changeWeek(d){week=Math.max(1,Math.min(13,week+d));updateWeekUI();if(window.loadWeekFn)loadWeekFn(week);}
+var week=1;window.week=1;
+function changeWeek(d){week=Math.max(1,Math.min(13,week+d));window.week=week;updateWeekUI();if(window.loadWeekFn)loadWeekFn(week);}
 function updateWeekUI(){
   if(!window.SEMANAS||!window.SEMANAS[week-1])return;
   var c=window.SEMANAS[week-1];
@@ -915,7 +915,7 @@ const COSTO_CART=325,CERV_CART=24,C_CUB=6,C_IL2H=4,C_ILMT=3;
 // ══════ FIREBASE ══════
 let localData={};
 let semanasStatus={}; // {w1:{closed:true,closedBy:'ger',reopenedBy:null}, ...}
-const weekRef=w=>doc(db,'semanas','semana'+(w||week));
+const weekRef=w=>doc(db,'semanas','semana'+(w||window.week));
 const usersRef=()=>doc(db,'config','usuarios');
 const commRef=()=>doc(db,'comentarios','activos');
 const semanasStatusRef=()=>doc(db,'config','semanas_status');
@@ -950,11 +950,11 @@ function subscribeWeek(w){
   });
 }
 
-const getW=()=>localData['w'+week]||{};
+const getW=()=>localData['w'+window.week]||{};
 window.getW=getW;
 window.setMundialUserData=(uid,pidx,key,val,indVal)=>{
-  if(!localData['w'+week])localData['w'+week]={};
-  const wData=localData['w'+week];
+  if(!localData['w'+window.week])localData['w'+window.week]={};
+  const wData=localData['w'+window.week];
   if(!wData.mundial)wData.mundial={por_usuario:{}};
   if(!wData.mundial.por_usuario)wData.mundial.por_usuario={};
   if(!wData.mundial.por_usuario[uid])wData.mundial.por_usuario[uid]={};
@@ -963,8 +963,8 @@ window.setMundialUserData=(uid,pidx,key,val,indVal)=>{
 window.getW=getW;
 window.getLocalData=()=>localData;
 window.setMundialUserData=(uid,pidx,key,val,indVal)=>{
-  if(!localData['w'+week])localData['w'+week]={};
-  const wData=localData['w'+week];
+  if(!localData['w'+window.week])localData['w'+window.week]={};
+  const wData=localData['w'+window.week];
   if(!wData.mundial)wData.mundial={por_usuario:{}};
   if(!wData.mundial.por_usuario)wData.mundial.por_usuario={};
   if(!wData.mundial.por_usuario[uid])wData.mundial.por_usuario[uid]={};
@@ -993,7 +993,7 @@ function calcPartidoData(p,d){
   return{ingreso,cervezas,cartones:Math.ceil(cart),costo,util:ingreso-costo};
 }
 function getMundialTotales(){
-  const partidos=PARTIDOS[week]||[];const mdata=getMundialW();
+  const partidos=PARTIDOS[window.week]||[];const mdata=getMundialW();
   let tI=0,tC=0,tCart=0,tCosto=0;
   partidos.forEach((p,i)=>{
     [...getTeamUsers(),users.find(u=>u.role==='enc')].filter(Boolean).forEach(u=>{
@@ -1004,7 +1004,7 @@ function getMundialTotales(){
   return{tI,tC,tCart,tCosto,tUtil:tI-tCosto};
 }
 function calcProyMundial(){
-  return (PARTIDOS[week]||[]).reduce((s,p)=>{
+  return (PARTIDOS[window.week]||[]).reduce((s,p)=>{
     return s+(p.tipo==='premium'?(p.proy_cubetas||0)*P_CUBETA+(p.proy_ind||0)*P_IND:((p.proy_il||0)*(p.tipo==='medio'?P_IL2H:P_ILMT)+(p.proy_ind||0)*P_IND));
   },0);
 }
@@ -1027,8 +1027,8 @@ async function loadSemanasStatus(){
 async function saveSemanasStatus(){
   try{await setDoc(semanasStatusRef(),semanasStatus,{merge:false});}catch(e){}
 }
-function isWeekClosed(w){return semanasStatus['w'+(w||week)]?.closed===true;}
-function isCurrWeekClosed(){return isWeekClosed(week);}
+function isWeekClosed(w){return semanasStatus['w'+(w||window.week)]?.closed===true;}
+function isCurrWeekClosed(){return isWeekClosed(window.week);}
 
 // Register all comment/status functions globally
 window._renderComments = renderComments;
@@ -1044,7 +1044,7 @@ window._sendComment=window.sendComment=async function(from){
   const text=textEl?.value?.trim();
   const target=targetEl?.value;
   if(!text||!target){showToast('Escribe un comentario y selecciona destinatario');return;}
-  const key='w'+week+'_'+target;
+  const key='w'+window.week+'_'+target;
   if(!allComments[key])allComments[key]=[];
   allComments[key].push({
     id:Date.now()+'',text,from,fromName:currentUser.nombre,
@@ -1063,7 +1063,7 @@ window._updateCommentStatus=window.updateCommentStatus=async function(key,id,sta
   c.status=status;
   // If realizado, archive and remove
   if(status==='verde'){
-    archivedComments.push({...c,week,archivedAt:new Date().toISOString()});
+    archivedComments.push({...c,window.week,archivedAt:new Date().toISOString()});
     allComments[key]=allComments[key].filter(x=>x.id!==id);
   }
   await saveComments();
@@ -1076,7 +1076,7 @@ window._renderComments=window.renderComments=function(){
   const mid=currentUser.id;
   // Render received comments (encargado and meseros)
   if(role==='enc'||role==='mes'){
-    const key='w'+week+'_'+mid;
+    const key='w'+window.week+'_'+mid;
     const comments=(allComments[key]||[]);
     const div=document.getElementById((role==='enc'?'enc':'mes')+'-comments-received');
     if(!div)return;
@@ -1088,7 +1088,7 @@ window._renderComments=window.renderComments=function(){
   if(role==='ger'){
     const div=document.getElementById('ger-comments-sent');
     if(!div)return;
-    const encKey='w'+week+'_enc';
+    const encKey='w'+window.week+'_enc';
     let html='';
     const encComments=allComments[encKey]||[];
     if(encComments.length){
@@ -1097,7 +1097,7 @@ window._renderComments=window.renderComments=function(){
       html+=encComments.map(c=>commentItemHTML(encKey,c,false)).join('');
     }
     getMesUsers().forEach(m=>{
-      const k='w'+week+'_'+m.id;
+      const k='w'+window.week+'_'+m.id;
       const cs=allComments[k]||[];
       if(cs.length){
         html+=`<div style="font-size:.68rem;font-weight:700;color:var(--ink-dim);margin:8px 0 6px;">→ ${m.nombre}</div>`;
@@ -1115,7 +1115,7 @@ window._renderComments=window.renderComments=function(){
     if(!div)return;
     let html='';
     getMesUsers().forEach(m=>{
-      const k='w'+week+'_'+m.id;
+      const k='w'+window.week+'_'+m.id;
       const cs=allComments[k]||[];
       if(cs.length){
         html+=`<div style="font-size:.68rem;font-weight:700;color:var(--ink-dim);margin:8px 0 6px;">→ ${m.nombre}</div>`;
@@ -1222,7 +1222,7 @@ function fillInputs(){
     const vnEl=document.getElementById('enc-venta-normal-inp');
     if(vnEl&&document.activeElement!==vnEl)vnEl.value=getW().venta_normal||'';
   }
-  // Disable/enable inputs based on week status
+  // Disable/enable inputs based on window.week status
   const closed=isCurrWeekClosed();
   // Hide/show save fab
   const fab=document.getElementById('save-fab');
@@ -1239,10 +1239,10 @@ function fillInputs(){
     // Hide all section content below the banner when closed
     const panel=document.getElementById('panel-'+role);
     if(panel){
-      // Get all direct children except the week-nav, banner, and lvl-hdr
+      // Get all direct children except the window.week-nav, banner, and lvl-hdr
       Array.from(panel.children).forEach(child=>{
         const id=child.id||'';
-        const isAlwaysVisible=id.includes('closed-banner')||id.includes('wn-')||child.classList.contains('week-nav')||child.classList.contains('lvl-hdr');
+        const isAlwaysVisible=id.includes('closed-banner')||id.includes('wn-')||child.classList.contains('window.week-nav')||child.classList.contains('lvl-hdr');
         if(!isAlwaysVisible&&child.tagName!=='SCRIPT'){
           child.style.display=closed?'none':'';
         }
@@ -1438,18 +1438,18 @@ function renderGerRevDetalle(){
   const pct=Math.round((totalRev/30)*100);setText('ger-rev-total',totalRev);setText('ger-rev-pct',pct+'%');
   const pill=document.getElementById('ger-rev-pill');
   if(totalRev>=30)setPill(pill,'✓ '+totalRev+'/30','p-ok');else if(totalRev>0)setPill(pill,totalRev+'/30','p-warn');else setPill(pill,'0/30','p-neu');
-  let acum=totalRev;Object.keys(localData).forEach(k=>{if(k!=='w'+week){const wd=localData[k];acum+=(wd.enc_reviews||0);getTeamUsers().forEach(m=>acum+=((wd.mes?.[m.id]?.reviews)||0));}});
+  let acum=totalRev;Object.keys(localData).forEach(k=>{if(k!=='w'+window.week){const wd=localData[k];acum+=(wd.enc_reviews||0);getTeamUsers().forEach(m=>acum+=((wd.mes?.[m.id]?.reviews)||0));}});
   setText('ger-rev-acum',acum);
 }
 
 function renderGerMundial(){
   const div=document.getElementById('ger-mundial-section');if(!div)return;
-  if(!window.SEMANAS[week-1].mundial){div.innerHTML=`<div style="text-align:center;padding:20px;color:var(--ink-dim);font-size:.78rem;">🌍 Mundial arranca Semana 2 · 11 Jun</div>`;return;}
-  const partidos=PARTIDOS[week]||[];if(!partidos.length){div.innerHTML='';return;}
+  if(!window.SEMANAS[window.week-1].mundial){div.innerHTML=`<div style="text-align:center;padding:20px;color:var(--ink-dim);font-size:.78rem;">🌍 Mundial arranca Semana 2 · 11 Jun</div>`;return;}
+  const partidos=PARTIDOS[window.week]||[];if(!partidos.length){div.innerHTML='';return;}
   const mundial=getMundialTotales();
   let html=`<div class="sec-title"><span>🏆</span>Mundial · Consolidado</div>
     <div class="mundial-hdr">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:1.4rem;">⚽</span><div><div class="mh-title">WORLD CUP 2026</div><div style="font-size:.62rem;opacity:.7;">${window.SEMANAS[week-1].dates}</div></div></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:1.4rem;">⚽</span><div><div class="mh-title">WORLD CUP 2026</div><div style="font-size:.62rem;opacity:.7;">${window.SEMANAS[window.week-1].dates}</div></div></div>
       <div class="mh-kpis">
         <div class="mhk"><div class="mhk-val">$${Math.round(mundial.tI).toLocaleString()}</div><div class="mhk-lbl">Venta</div></div>
         <div class="mhk"><div class="mhk-val">$${Math.round(mundial.tUtil).toLocaleString()}</div><div class="mhk-lbl">Utilidad</div></div>
@@ -1612,15 +1612,15 @@ window.renderEncEquipo=renderEncEquipo;
 
 function renderEncMundial(){
   const div=document.getElementById('enc-mundial-section');if(!div)return;
-  if(!window.SEMANAS[week-1].mundial){div.innerHTML='';return;}
-  const partidos=PARTIDOS[week]||[];if(!partidos.length){div.innerHTML='';return;}
+  if(!window.SEMANAS[window.week-1].mundial){div.innerHTML='';return;}
+  const partidos=PARTIDOS[window.week]||[];if(!partidos.length){div.innerHTML='';return;}
   const mdata=getMundialW();
   const encUser=users.find(u=>u.role==='enc');
   const encId=encUser?encUser.id:'enc';
   let html=`<div class="sec-title"><span>🏆</span>Mundial · Resumen y correcciones</div>`;
   const mundial=getMundialTotales();
   html+=`<div class="mundial-hdr">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:1.2rem;">⚽</span><div><div class="mh-title">World Cup 2026</div><div style="font-size:.62rem;opacity:.7;">${window.SEMANAS[week-1].dates}</div></div></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:1.2rem;">⚽</span><div><div class="mh-title">World Cup 2026</div><div style="font-size:.62rem;opacity:.7;">${window.SEMANAS[window.week-1].dates}</div></div></div>
     <div class="mh-kpis">
       <div class="mhk"><div class="mhk-val">$${Math.round(mundial.tI).toLocaleString()}</div><div class="mhk-lbl">Total equipo</div></div>
       <div class="mhk"><div class="mhk-val">${mundial.tCart}</div><div class="mhk-lbl">Cartones</div></div>
@@ -1675,7 +1675,7 @@ function renderEncMundial(){
 window.renderEncMundial=renderEncMundial;
 
 window.calcEncMundial=()=>{
-  const partidos=PARTIDOS[week]||[];
+  const partidos=PARTIDOS[window.week]||[];
   const encUser=users.find(u=>u.role==='enc');
   const allU=[...getTeamUsers(),encUser].filter(Boolean);
   partidos.forEach((p,i)=>{
@@ -1740,8 +1740,8 @@ window.calcMesReviews=()=>{
 
 function renderMesMundial(){
   const div=document.getElementById('mes-mundial-section');if(!div)return;
-  if(!currentUser||(currentUser.role!=='mes'&&currentUser.role!=='bar')||!window.SEMANAS||!window.SEMANAS[week-1]||!(window.SEMANAS[week-1]||{}).mundial){div.innerHTML='';return;}
-  const partidos=PARTIDOS[week]||[];if(!partidos.length){div.innerHTML='';return;}
+  if(!currentUser||(currentUser.role!=='mes'&&currentUser.role!=='bar')||!window.SEMANAS||!window.SEMANAS[window.week-1]||!(window.SEMANAS[window.week-1]||{}).mundial){div.innerHTML='';return;}
+  const partidos=PARTIDOS[window.week]||[];if(!partidos.length){div.innerHTML='';return;}
   const mid=currentUser.id;const mdata=getMundialW();
   
   let html=`<div class="sec-title"><span>🏆</span>Tu meta mundial</div>`;
@@ -1811,7 +1811,7 @@ setTimeout(function(){
 
 window.calcMesMundialLive=()=>{
   if(!currentUser||(currentUser.role!=='mes'&&currentUser.role!=='bar'))return;
-  const mid=currentUser.id;const partidos=PARTIDOS[week]||[];
+  const mid=currentUser.id;const partidos=PARTIDOS[window.week]||[];
   // Update local display
   partidos.forEach((p,i)=>{
     const mv=parseFloat(document.getElementById('mes-m-'+mid+'-p'+i+'-main')?.value)||0;
@@ -1886,7 +1886,7 @@ window.guardar=async()=>{
     PALANCAS.forEach(p=>{const el=document.getElementById('mp-inp-'+p.id);if(el)mes[mid][p.id]=parseFloat(el.value)||0;});
     const rEl=document.getElementById('mes-rev-inp');if(rEl)mes[mid].reviews=parseFloat(rEl.value)||0;
     mundial.por_usuario[mid]=mundial.por_usuario[mid]||{};
-    (PARTIDOS[week]||[]).forEach((p,i)=>{
+    (PARTIDOS[window.week]||[]).forEach((p,i)=>{
       mundial.por_usuario[mid]['p'+i]=mundial.por_usuario[mid]['p'+i]||{};
       const mainEl=document.getElementById(`mes-m-${mid}-p${i}-main`);const indEl=document.getElementById(`mes-m-${mid}-p${i}-ind`);
       if(p.tipo==='premium'){if(mainEl)mundial.por_usuario[mid]['p'+i].cubetas=parseFloat(mainEl.value)||0;}
@@ -1901,7 +1901,7 @@ window.guardar=async()=>{
     const allU=[...getTeamUsers(),encUser].filter(Boolean);
     allU.forEach(u=>{
       mundial.por_usuario[u.id]=mundial.por_usuario[u.id]||{};
-      (PARTIDOS[week]||[]).forEach((p,i)=>{
+      (PARTIDOS[window.week]||[]).forEach((p,i)=>{
         mundial.por_usuario[u.id]['p'+i]=mundial.por_usuario[u.id]['p'+i]||{};
         const mainEl=document.getElementById(`enc-m-${u.id}-p${i}`);const indEl=document.getElementById(`enc-m-ind-${u.id}-p${i}`);
         if(mainEl){if(p.tipo==='premium')mundial.por_usuario[u.id]['p'+i].cubetas=parseFloat(mainEl.value)||0;else mundial.por_usuario[u.id]['p'+i].personas=parseFloat(mainEl.value)||0;}
@@ -1911,7 +1911,7 @@ window.guardar=async()=>{
   }
   const encT=totPesos(encP);let mesT=0;getTeamUsers().forEach(m=>mesT+=totPesos(mes[m.id]||{}));
   const payload={enc_p:encP,mes,enc_reviews,mundial,venta_normal:wData.venta_normal||0,saved_total:BASE+encT+mesT};
-  localData['w'+week]=payload;await saveFS(week,payload);
+  localData['w'+window.week]=payload;await saveFS(window.week,payload);
   showToast('✓ Guardado y sincronizado');
   // Refresh own panel after save
   if(window.calcMes)calcMes();
@@ -1923,14 +1923,14 @@ window.guardar=async()=>{
 // ══════ CIERRE DE SEMANA ══════
 window._cerrarSemana=window.cerrarSemana=async function(){
   if(currentUser?.role!=='ger'){showToast('Solo el gerente puede cerrar semanas');return;}
-  const pin=prompt('Ingresa tu PIN para cerrar la Semana '+week+':');
+  const pin=prompt('Ingresa tu PIN para cerrar la Semana '+window.week+':');
   if(!pin){return;}
   if(pin!==currentUser.pin){showToast('⛔ PIN incorrecto');return;}
-  const confirm=window.confirm('¿Confirmas el cierre de la Semana '+week+'? El equipo no podrá editar datos.');
+  const confirm=window.confirm('¿Confirmas el cierre de la Semana '+window.week+'? El equipo no podrá editar datos.');
   if(!confirm)return;
-  semanasStatus['w'+week]={closed:true,closedBy:currentUser.nombre,closedAt:new Date().toISOString(),reopenedBy:null,notifyContraloria:true};
+  semanasStatus['w'+window.week]={closed:true,closedBy:currentUser.nombre,closedAt:new Date().toISOString(),reopenedBy:null,notifyContraloria:true};
   await saveSemanasStatus();
-  showToast('✓ Semana '+week+' cerrada · Contraloría será notificada');
+  showToast('✓ Semana '+window.week+' cerrada · Contraloría será notificada');
   renderWeekStatus();
   document.getElementById('save-fab').style.display='none';
 };
@@ -1947,7 +1947,7 @@ window.reabrirSemanaEspecifica=async function(weekKey){
 
 window._reabrirSemana=window.reabrirSemana=async function(){
   if(currentUser?.role!=='dg'){showToast('Solo Contraloría puede autorizar reapertura');return;}
-  window.reabrirSemanaEspecifica('w'+week);
+  window.reabrirSemanaEspecifica('w'+window.week);
 };
 
 // ══════ CIERRE MENSUAL ══════
@@ -2095,33 +2095,33 @@ window.renderCierreMensual=renderCierreMensual;
 window.renderDGResumenes=renderDGResumenes;
 
 function renderWeekStatus(){
-  // Show/hide save fab based on week status and role
+  // Show/hide save fab based on window.week status and role
   const fab=document.getElementById('save-fab');
   if(!fab||!currentUser)return;
   const closed=isCurrWeekClosed();
   const canEdit=currentUser.role!=='dg';
   if(canEdit&&!closed)fab.style.display='flex';
   else fab.style.display='none';
-  // Update week nav to show lock icon
+  // Update window.week nav to show lock icon
   ['ger','enc','mes','dg'].forEach(id=>{
     const lbl=document.getElementById('wn-'+id+'-l');
     if(lbl){
-      const base=window.SEMANAS[week-1]?.label||'Semana '+week;
+      const base=window.SEMANAS[window.week-1]?.label||'Semana '+window.week;
       lbl.textContent=closed?'🔒 '+base:base;
     }
   });
   // Show close/reopen buttons in ger panel
-  const gerCloseDiv=document.getElementById('ger-week-actions');
+  const gerCloseDiv=document.getElementById('ger-window.week-actions');
   if(gerCloseDiv){
     if(closed){
-      const st=semanasStatus['w'+week];
+      const st=semanasStatus['w'+window.week];
       gerCloseDiv.innerHTML=`<div style="background:var(--red-lt);border:1px solid var(--red);border-radius:10px;padding:12px;margin-bottom:10px;">
-        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;color:var(--red);">🔒 Semana ${week} cerrada</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;color:var(--red);">🔒 Semana ${window.week} cerrada</div>
         <div style="font-size:.65rem;color:var(--ink-dim);margin-top:4px;">Cerrada por ${st?.closedBy||'gerente'}</div>
         ${currentUser.role==='dg'?`<button onclick="reabrirSemana()" style="margin-top:8px;background:var(--amber);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:.75rem;cursor:pointer;">🔓 Autorizar Reapertura</button>`:'<div style="font-size:.63rem;color:var(--ink-dim);margin-top:6px;">Contraloría debe autorizar reapertura</div>'}
       </div>`;
     } else {
-      gerCloseDiv.innerHTML=`<button onclick="cerrarSemana()" style="width:100%;padding:11px;background:var(--red);color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;margin-bottom:10px;">🔒 Cerrar Semana ${week}</button>`;
+      gerCloseDiv.innerHTML=`<button onclick="cerrarSemana()" style="width:100%;padding:11px;background:var(--red);color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;margin-bottom:10px;">🔒 Cerrar Semana ${window.week}</button>`;
     }
   }
   // Show readonly banner for closed weeks
@@ -2296,8 +2296,8 @@ let celebrationShown = {};
 function checkCelebration(role) {
   if(!currentUser) return;
   const uid = currentUser.id;
-  const weekKey = 'w' + week + '_' + uid;
-  // Only show once per week per user
+  const weekKey = 'w' + window.week + '_' + uid;
+  // Only show once per window.week per user
   if(celebrationShown[weekKey]) return;
 
   let pct = 0;
@@ -2343,7 +2343,7 @@ function checkCelebration(role) {
   const sub = document.getElementById('celeb-sub');
   const stats = document.getElementById('celeb-stats');
   if(el) el.textContent = msg;
-  if(sub) sub.innerHTML = 'Llegaste al <b>100%</b> de tu meta de la Semana ' + week + '.<br>El equipo Grupo Nativo lo reconoce.';
+  if(sub) sub.innerHTML = 'Llegaste al <b>100%</b> de tu meta de la Semana ' + window.week + '.<br>El equipo Grupo Nativo lo reconoce.';
   if(stats) stats.innerHTML =
     '<div class="celeb-stat"><div class="celeb-stat-val">$' + ventaVal.toLocaleString() + '</div><div class="celeb-stat-lbl">Venta sugestiva</div></div>' +
     '<div class="celeb-stat"><div class="celeb-stat-val">' + piezasTotal + '</div><div class="celeb-stat-lbl">Piezas vendidas</div></div>' +
@@ -2419,7 +2419,7 @@ async function init(){
   };
   window.appReady=async function(){
     updateWeekUI();
-    await window.loadWeekFn(week);
+    await window.loadWeekFn(window.week);
     if(window.renderWeekStatus)renderWeekStatus();
     if(window.populateEncTarget)populateEncTarget();
     // Force full re-render after data is loaded - fixes blank panel on login
